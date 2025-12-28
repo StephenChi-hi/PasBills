@@ -98,7 +98,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={` `}
+        className={` pb-25 [100px]`}
       >
         <AppLayout> {children} </AppLayout>
 

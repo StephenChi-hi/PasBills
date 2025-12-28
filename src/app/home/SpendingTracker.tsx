@@ -9,7 +9,7 @@ const SpendingTracker: React.FC = () => {
   const currencySymbol = "₦";
 
   return (
-    <div className="font-sans w-full bg-[#F4F5F7] py-4 p-2 sm:p-6 rounded-2xl border border-gray-100">
+    <div className="font-sans w-full  bg-[#F4F5F7] py-4 p-2 sm:p-6 rounded-2xl border border-gray-200">
       {/* Header Info */}
       <div className="mb-6">
         <Paragraph1 className="text-gray-500 text-sm  mb-1">

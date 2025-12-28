@@ -1,5 +1,5 @@
 import React from "react";
-import { Paragraph1, Paragraph2 } from "@/common/ui/Text";
+import { Paragraph1, Paragraph2, Paragraph3 } from "@/common/ui/Text";
 import {
   HiChevronRight,
   HiOutlineBanknotes,
@@ -13,10 +13,10 @@ const Networth: React.FC = () => {
   const investmentAmount = "834,596";
 
   return (
-    <div className="font-sans w-full  bg-gray-50 sm:p-6 p-2 py-4 rounded-2xl  border border-gray-100">
+    <div className="font-sans w-full  bg-gray-50 sm:p-6 p-2 py-4 rounded-2xl  border border-gray-200">
       {/* Header */}
       <div className="flex justify-between items-center mb-2">
-        <Paragraph1 className="text-xl font-bold text-gray-900">Networth</Paragraph1>
+        <Paragraph1 className="text-xl  text-gray-900">Networth</Paragraph1>
         <HiChevronRight className="w-6 h-6 text-blue-500 cursor-pointer" />
       </div>
 

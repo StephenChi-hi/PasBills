@@ -1,9 +1,14 @@
 "use client";
 
 import CashFlow from "./home/CashFlow";
+import FloatingActionMenu from "./home/FloatingActionMenu";
 import MonthlySpendingCard from "./home/MonthlySpendingCard";
 import Networth from "./home/Networth";
+import PlannerDemo from "./home/PlannerDemo";
+import ProFeaturesDemo from "./home/ProFeaturesDemo";
 import SpendingTracker from "./home/SpendingTracker";
+import TransactionsDemo from "./home/TransactionsDemo";
+import TrustFooter from "./home/TrustFooter";
 
 const HomePage = () => {
   return (
@@ -18,16 +23,17 @@ const HomePage = () => {
       >
         {/* Block 1 */}
         <SpendingTracker />
-
         {/* Block 2 */}
         <CashFlow />
         {/* Block 3 */}
         <Networth />
         {/* Block 4 */}
-        <div className="h-40 rounded-xl bg-gray-100" />
+        <PlannerDemo />
         {/* Block 5 */}
-        <div className="h-40 rounded-xl bg-gray-100" />
+        <TransactionsDemo /> <ProFeaturesDemo />
       </div>
+      <TrustFooter />
+      <FloatingActionMenu />
     </section>
   );
 };
