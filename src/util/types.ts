@@ -17,6 +17,7 @@ export interface AccountOption {
   id: string;
   name: string;
   icon: React.ElementType;
+  category: string; // <-- add this
 }
 
 export interface AccountSection {

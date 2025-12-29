@@ -1,39 +1,76 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { Paragraph1 } from "@/common/ui/Text";
-import { Pencil, ChevronRight, Bitcoin, Banknote, Building, LucidePiggyBank, Building2Icon  } from "lucide-react";
+import {
+  Pencil,
+  ChevronRight,
+  Building,
+  Building2Icon,
+  LucidePiggyBank,
+} from "lucide-react";
+import { supabase } from "@/util/supabase/client";
 
 interface InvestmentAccount {
+  id: string;
   name: string;
-  type: string;
-  balance: string;
+  type_name: string;
+  balance: number;
   icon: React.ElementType;
 }
 
-const investmentData: InvestmentAccount[] = [
-  {
-    name: "VFD",
-    type: "Bank",
-    balance: "830,318.95",
-    icon: Building2Icon,
-  },
-  {
-    name: "Pamlpay",
-    type: "Bank",
-    balance: "4,277.33",
-    icon: Building,
-  },
-];
-
 const CashCard: React.FC = () => {
+  const [accounts, setAccounts] = useState<InvestmentAccount[]>([]);
+  const [totalBalance, setTotalBalance] = useState(0);
+
+  useEffect(() => {
+    fetchCashAccounts();
+  }, []);
+
+  const fetchCashAccounts = async () => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error(userError);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("user_id", userData?.user?.id)
+      .eq("category", "cash"); // Only cash accounts
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    // Map icons (you can choose different icons per type)
+    const mappedAccounts: InvestmentAccount[] = (data || []).map((acc) => ({
+      id: acc.id,
+      name: acc.name,
+      type_name: acc.type_name,
+      balance: acc.balance,
+      icon: acc.type_name.toLowerCase().includes("bank")
+        ? Building2Icon
+        : LucidePiggyBank,
+    }));
+
+    setAccounts(mappedAccounts);
+
+    // Calculate total balance
+    const total = mappedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+    setTotalBalance(total);
+  };
+
   return (
-    <div className=" border rounded-2xl border-gray-200 p-4">
+    <div className="border rounded-2xl border-gray-200 p-4">
       {/* --- Header Section --- */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <Paragraph1 className="text-lg font-black text-gray-900">
             Cash
           </Paragraph1>
-          {/* Edit/Pencil Icon */}
           <button className="hover:opacity-70 transition-opacity">
             <Pencil className="w-4 h-4 text-blue-400" strokeWidth={2.5} />
           </button>
@@ -41,25 +78,22 @@ const CashCard: React.FC = () => {
 
         <button className="flex items-center group">
           <Paragraph1 className="text-lg font-black text-gray-900">
-            ₦2,834,596.28
+            ₦{totalBalance.toLocaleString()}
           </Paragraph1>
           <ChevronRight className="w-6 h-6 text-gray-400 " />
         </button>
       </div>
 
       {/* --- Accounts List Container --- */}
-      <div className=" space-y-2 ">
-        {investmentData.map((account, index) => (
+      <div className="space-y-2">
+        {accounts.map((account, index) => (
           <div
-            key={account.name}
-            className={`flex items-center justify-between  active:bg-gray-50 transition-colors ${
-              index !== investmentData.length - 1
-                ? "border-b border-gray-50"
-                : ""
+            key={account.id}
+            className={`flex items-center justify-between active:bg-gray-50 transition-colors ${
+              index !== accounts.length - 1 ? "border-b border-gray-50" : ""
             }`}
           >
             <div className="flex items-center gap-4">
-              {/* Circular Icon with blue border as seen in image */}
               <div className="w-12 h-12 rounded-full border-[1.5px] border-blue-500 flex items-center justify-center bg-white">
                 <account.icon className="w-7 h-7 text-blue-500" />
               </div>
@@ -69,13 +103,13 @@ const CashCard: React.FC = () => {
                   {account.name}
                 </Paragraph1>
                 <Paragraph1 className="text-xs text-gray-400 font-medium">
-                  {account.type}
+                  {account.type_name}
                 </Paragraph1>
               </div>
             </div>
 
             <Paragraph1 className="text-[16px] font-bold text-gray-900">
-              ₦{account.balance}
+              ₦{account.balance.toLocaleString()}
             </Paragraph1>
           </div>
         ))}

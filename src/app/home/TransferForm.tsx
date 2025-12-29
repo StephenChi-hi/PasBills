@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
-import { expenseCategories } from "@/data/categories";
-
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
 
@@ -14,16 +12,16 @@ interface Account {
   balance: number;
 }
 
-interface ExpenseFormValues {
+interface TransferFormValues {
   amount: number;
-  categoryId: string;
-  accountId: string;
+  fromAccountId: string;
+  toAccountId: string;
   date: string;
   notes: string;
   photoUrl: string;
 }
 
-export default function AddExpenseForm() {
+export default function TransferForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,10 +31,8 @@ export default function AddExpenseForm() {
 
   const fetchAccounts = async () => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error(userError);
-      return;
-    }
+    if (userError) return console.error(userError);
+
     const { data, error } = await supabase
       .from("accounts")
       .select("*")
@@ -45,39 +41,52 @@ export default function AddExpenseForm() {
     else setAccounts(data as Account[]);
   };
 
-  const initialValues: ExpenseFormValues = {
+  const initialValues: TransferFormValues = {
     amount: 0,
-    categoryId: "",
-    accountId: "",
+    fromAccountId: "",
+    toAccountId: "",
     date: format(new Date(), "yyyy-MM-dd"),
     notes: "",
     photoUrl: "",
   };
 
-  const handleSubmit = async (values: ExpenseFormValues) => {
-    if (!values.accountId || !values.categoryId)
-      return alert("Select account and category!");
+  const handleSubmit = async (values: TransferFormValues) => {
+    if (!values.fromAccountId || !values.toAccountId)
+      return alert("Select both accounts!");
+    if (values.fromAccountId === values.toAccountId)
+      return alert("From and To accounts cannot be the same!");
     setLoading(true);
 
-    try {
-const account = accounts.find((a) => a.id.toString() === values.accountId);
-      if (!account) throw new Error("Account not found");
+      try {
 
-      // Debit account balance
-      const newBalance = account.balance - values.amount;
+      const fromAccount = accounts.find(
+        (a) => a.id.toString() === values.fromAccountId
+      );
+      const toAccount = accounts.find(
+        (a) => a.id.toString() === values.toAccountId
+      );
+      if (!fromAccount || !toAccount) throw new Error("Account not found");
+
+      // Debit from source
       await supabase
         .from("accounts")
-        .update({ balance: newBalance })
-        .eq("id", account.id);
+        .update({ balance: fromAccount.balance - values.amount })
+        .eq("id", fromAccount.id);
+
+      // Credit to destination
+      await supabase
+        .from("accounts")
+        .update({ balance: toAccount.balance + values.amount })
+        .eq("id", toAccount.id);
 
       // Record transaction
       const { data: userData } = await supabase.auth.getUser();
       await supabase.from("transactions").insert([
         {
           user_id: userData?.user?.id,
-          account_id: account.id,
-          category_id: values.categoryId,
-          type: "expense",
+          account_id: fromAccount.id,
+          transfer_to_account_id: toAccount.id,
+          type: "transfer",
           amount: values.amount,
           date: values.date,
           notes: values.notes,
@@ -85,11 +94,11 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
         },
       ]);
 
-      alert("Expense recorded successfully!");
+      alert("Transfer recorded successfully!");
       fetchAccounts();
     } catch (err) {
       console.error(err);
-      alert("Failed to record expense");
+      alert("Failed to record transfer");
     } finally {
       setLoading(false);
     }
@@ -98,43 +107,43 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
   return (
     <div className="">
       <Formik initialValues={initialValues} onSubmit={handleSubmit}>
-        {({ values, handleChange }) => (
+        {() => (
           <Form className="space-y-4">
             <div>
               <Paragraph1 className="block mb-1">Amount</Paragraph1>
               <Field
                 type="number"
                 name="amount"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
             <div>
-              <Paragraph1 className="block mb-1">Category</Paragraph1>
+              <Paragraph1 className="block mb-1">From Account</Paragraph1>
               <Field
                 as="select"
-                name="categoryId"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                name="fromAccountId"
+                className="w-full border p-2 rounded-xl border-gray-200"
               >
-                <option value="">Select Category</option>
-                {expenseCategories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
+                <option value="">Select Source Account</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id.toString()}>
+                    {acc.name} (Balance: ${acc.balance})
                   </option>
                 ))}
               </Field>
             </div>
 
             <div>
-              <Paragraph1 className="block mb-1">Account</Paragraph1>
+              <Paragraph1 className="block mb-1">To Account</Paragraph1>
               <Field
                 as="select"
-                name="accountId"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                name="toAccountId"
+                className="w-full border p-2 rounded-xl border-gray-200"
               >
-                <option value="">Select Account</option>
+                <option value="">Select Destination Account</option>
                 {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
+                  <option key={acc.id} value={acc.id.toString()}>
                     {acc.name} (Balance: ${acc.balance})
                   </option>
                 ))}
@@ -146,7 +155,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 type="date"
                 name="date"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
@@ -155,7 +164,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 as="textarea"
                 name="notes"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
@@ -165,16 +174,16 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
                 type="text"
                 name="photoUrl"
                 placeholder="https://..."
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white p-2 rounded"
+              className="w-full bg-purple-600 text-white p-2 rounded"
               disabled={loading}
             >
-              {loading ? "Saving..." : "Add Expense"}
+              {loading ? "Saving..." : "Add Transfer"}
             </button>
           </Form>
         )}

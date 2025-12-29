@@ -21,33 +21,74 @@ export const accountTypes: AccountSection[] = [
   {
     category: "Cash",
     options: [
-      { id: "savings", name: "Savings", icon: FaPiggyBank },
-      { id: "checking", name: "Checking", icon: FaMoneyCheckAlt },
-      { id: "cash", name: "Cash", icon: HiOutlineBanknotes },
+      { id: "savings", name: "Savings", icon: FaPiggyBank, category: "cash" },
+      {
+        id: "checking",
+        name: "Checking",
+        icon: FaMoneyCheckAlt,
+        category: "cash",
+      },
+      { id: "cash", name: "Cash", icon: HiOutlineBanknotes, category: "cash" },
       {
         id: "bank-account",
         name: "Bank account",
         icon: HiOutlineBuildingLibrary,
+        category: "cash",
       },
-      { id: "wallet", name: "Wallet", icon: HiOutlineWallet },
-      { id: "lending", name: "Lending", icon: FaHandHoldingUsd },
+      { id: "wallet", name: "Wallet", icon: HiOutlineWallet, category: "cash" },
+      {
+        id: "lending",
+        name: "Lending",
+        icon: FaHandHoldingUsd,
+        category: "cash",
+      },
     ],
   },
   {
     category: "Credit",
     options: [
-      { id: "credit-card", name: "Credit Card", icon: HiOutlineCreditCard },
-      { id: "line-of-credit", name: "Line of Credit", icon: FaHandHoldingUsd },
+      {
+        id: "credit-card",
+        name: "Credit Card",
+        icon: HiOutlineCreditCard,
+        category: "credit",
+      },
+      {
+        id: "line-of-credit",
+        name: "Line of Credit",
+        icon: FaHandHoldingUsd,
+        category: "credit",
+      },
     ],
   },
   {
     category: "Investments",
     options: [
-      { id: "brokerage", name: "Brokerage", icon: HiOutlineChartBar },
-      { id: "investments", name: "Investments", icon: FaLeaf },
-      { id: "insurance", name: "Insurance", icon: HiOutlineDocumentText },
-      { id: "retirement", name: "Retirement", icon: TbHorseToy },
-      { id: "crypto", name: "Crypto", icon: FaBitcoin },
+      {
+        id: "brokerage",
+        name: "Brokerage",
+        icon: HiOutlineChartBar,
+        category: "credit",
+      },
+      {
+        id: "investments",
+        name: "Investments",
+        icon: FaLeaf,
+        category: "credit",
+      },
+      {
+        id: "insurance",
+        name: "Insurance",
+        icon: HiOutlineDocumentText,
+        category: "credit",
+      },
+      {
+        id: "retirement",
+        name: "Retirement",
+        icon: TbHorseToy,
+        category: "credit",
+      },
+      { id: "crypto", name: "Crypto", icon: FaBitcoin, category: "credit" },
     ],
   },
 ];
