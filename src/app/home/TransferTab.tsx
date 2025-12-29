@@ -1,5 +1,7 @@
+import TransferForm from "./TransferForm";
+
 const TransferTab = () => {
-  return <div className="text-sm text-gray-600">Transfer form goes here</div>;
+  return <TransferForm />;
 };
 
 export default TransferTab;

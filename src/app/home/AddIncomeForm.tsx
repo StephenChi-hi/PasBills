@@ -3,8 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
-import { expenseCategories } from "@/data/categories";
-
+import { incomeCategories } from "@/data/categories";
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
 
@@ -14,7 +13,7 @@ interface Account {
   balance: number;
 }
 
-interface ExpenseFormValues {
+interface IncomeFormValues {
   amount: number;
   categoryId: string;
   accountId: string;
@@ -23,7 +22,7 @@ interface ExpenseFormValues {
   photoUrl: string;
 }
 
-export default function AddExpenseForm() {
+export default function AddIncomeForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -41,11 +40,13 @@ export default function AddExpenseForm() {
       .from("accounts")
       .select("*")
       .eq("user_id", userData?.user?.id);
+    console.log("Fetched accounts:", data);
+
     if (error) console.error(error);
     else setAccounts(data as Account[]);
   };
 
-  const initialValues: ExpenseFormValues = {
+  const initialValues: IncomeFormValues = {
     amount: 0,
     categoryId: "",
     accountId: "",
@@ -54,7 +55,7 @@ export default function AddExpenseForm() {
     photoUrl: "",
   };
 
-  const handleSubmit = async (values: ExpenseFormValues) => {
+  const handleSubmit = async (values: IncomeFormValues) => {
     if (!values.accountId || !values.categoryId)
       return alert("Select account and category!");
     setLoading(true);
@@ -63,8 +64,8 @@ export default function AddExpenseForm() {
 const account = accounts.find((a) => a.id.toString() === values.accountId);
       if (!account) throw new Error("Account not found");
 
-      // Debit account balance
-      const newBalance = account.balance - values.amount;
+      // Credit account balance
+      const newBalance = account.balance + values.amount;
       await supabase
         .from("accounts")
         .update({ balance: newBalance })
@@ -77,7 +78,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
           user_id: userData?.user?.id,
           account_id: account.id,
           category_id: values.categoryId,
-          type: "expense",
+          type: "income", // <-- here is income
           amount: values.amount,
           date: values.date,
           notes: values.notes,
@@ -85,11 +86,11 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
         },
       ]);
 
-      alert("Expense recorded successfully!");
+      alert("Income recorded successfully!");
       fetchAccounts();
     } catch (err) {
       console.error(err);
-      alert("Failed to record expense");
+      alert("Failed to record income");
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 type="number"
                 name="amount"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
@@ -114,10 +115,10 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 as="select"
                 name="categoryId"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               >
                 <option value="">Select Category</option>
-                {expenseCategories.map((cat) => (
+                {incomeCategories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
@@ -130,7 +131,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 as="select"
                 name="accountId"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               >
                 <option value="">Select Account</option>
                 {accounts.map((acc) => (
@@ -146,7 +147,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 type="date"
                 name="date"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
@@ -155,7 +156,7 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
               <Field
                 as="textarea"
                 name="notes"
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
@@ -165,16 +166,16 @@ const account = accounts.find((a) => a.id.toString() === values.accountId);
                 type="text"
                 name="photoUrl"
                 placeholder="https://..."
-                className="w-full  border p-2 rounded-xl border-gray-200"
+                className="w-full border p-2 rounded-xl border-gray-200"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white p-2 rounded"
+              className="w-full bg-green-600 text-white p-2 rounded"
               disabled={loading}
             >
-              {loading ? "Saving..." : "Add Expense"}
+              {loading ? "Saving..." : "Add Income"}
             </button>
           </Form>
         )}

@@ -1,5 +1,7 @@
+import AddIncomeForm from "./AddIncomeForm";
+
 const IncomeTab = () => {
-  return <div className="text-sm text-gray-600">Income form goes here</div>;
+  return <AddIncomeForm />;
 };
 
 export default IncomeTab;

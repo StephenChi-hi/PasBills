@@ -99,6 +99,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
       user_id: user.id,
       type_id: selectedType?.id,
       type_name: selectedType?.name,
+      category: selectedType?.category, // <-- add this
       name: form.name,
       account_number: form.number,
       starting_balance: Number(form.balance || 0),
