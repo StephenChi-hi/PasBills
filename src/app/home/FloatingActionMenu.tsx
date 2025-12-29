@@ -8,6 +8,8 @@ import {
   ArrowLeftRight,
   FileText,
 } from "lucide-react";
+import AddEntryModal from "./AddEntryModal";
+import { AddEntryTab } from "@/util/types";
 
 // Definition for menu items to keep the render clean
 interface MenuItem {
@@ -15,19 +17,22 @@ interface MenuItem {
   icon: React.ElementType;
   theme: "red" | "green" | "blue" | "orange";
   onClick?: () => void;
+  tab: any;
 }
 
 const menuItems: MenuItem[] = [
-  { label: "Add Expense", icon: ArrowUp, theme: "red" },
-  { label: "Add Income", icon: ArrowDown, theme: "green" },
-  { label: "Transfer", icon: ArrowLeftRight, theme: "blue" },
-  { label: "Add Bill", icon: FileText, theme: "orange" },
+  { label: "Add Expense", icon: ArrowUp, theme: "red", tab: "expense" },
+  { label: "Add Income", icon: ArrowDown, theme: "green", tab: "income" },
+  { label: "Transfer", icon: ArrowLeftRight, theme: "blue", tab: "transfer" },
+  { label: "Add Bill", icon: FileText, theme: "orange", tab: "bill" },
 ];
 
 const FloatingActionMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<AddEntryTab>("expense");
 
   // Helper to map theme colors to Tailwind classes
   const getThemeStyles = (theme: MenuItem["theme"]) => {
@@ -46,7 +51,7 @@ const FloatingActionMenu = () => {
   };
 
   return (
-    <div className="relative z-50">
+    <div className="relative z-60">
       {/* --- Backdrop Overlay with Blur --- */}
       {/* This covers the entire screen when open */}
       <div
@@ -73,8 +78,11 @@ const FloatingActionMenu = () => {
           return (
             <button
               key={item.label}
-              onClick={item.onClick}
-              // Staggering the animation slightly for a smoother effect
+              onClick={() => {
+                setActiveTab(item.tab);
+                setModalOpen(true);
+                setIsOpen(false);
+              }} // Staggering the animation slightly for a smoother effect
               style={{ transitionDelay: `${index * 50}ms` }}
               className="flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-lg shadow-gray-200/50 hover:bg-gray-50 transition-transform active:scale-95"
             >
@@ -90,6 +98,13 @@ const FloatingActionMenu = () => {
           );
         })}
       </div>
+
+      <AddEntryModal
+        isOpen={modalOpen}
+        activeTab={activeTab}
+        onClose={() => setModalOpen(false)}
+        onTabChange={setActiveTab}
+      />
 
       {/* --- Main Toggle Button (FAB) --- */}
       {/* Fixed at bottom right, toggles between Plus and X icon */}
@@ -114,7 +129,3 @@ const FloatingActionMenu = () => {
 };
 
 export default FloatingActionMenu;
-
-
-
-

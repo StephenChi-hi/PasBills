@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/common/layout/BottomNav";
 import AppLayout from "@/common/layout/AppLayout";
+import { AuthProvider } from "@/providers/AuthProvider";
+import AuthGate from "./auth/AuthGate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,7 +15,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
 
 export const metadata: Metadata = {
   title: {
@@ -88,21 +89,20 @@ export const metadata: Metadata = {
   themeColor: "#0F766E", // Tailwind teal-700 (trust & finance)
 };
 
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html lang="en">
-      <body
-        className={` pb-25 [100px]`}
-      >
-        <AppLayout> {children} </AppLayout>
-
-        <BottomNav />
+      <body className={` pb-25 [100px]`}>
+        <AuthProvider>
+          <AuthGate>
+            <AppLayout> {children} </AppLayout>
+            <BottomNav />{" "}
+          </AuthGate>
+        </AuthProvider>
       </body>
     </html>
   );
