@@ -29,7 +29,7 @@ export default function SplashScreen({ children }: Props) {
 
   if (showSplash) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 text-white">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white text-slate-900">
         <div className="flex flex-col items-center gap-4">
           <Image
             src="/logo2.png"
@@ -38,7 +38,7 @@ export default function SplashScreen({ children }: Props) {
             height={160}
             priority
           />
-          <p className="text-sm tracking-[0.2em] uppercase text-slate-300">
+          <p className="text-sm tracking-[0.2em] uppercase text-slate-500">
             Loading PassBills
           </p>
         </div>

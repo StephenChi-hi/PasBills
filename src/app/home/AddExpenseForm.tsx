@@ -77,10 +77,18 @@ export default function AddExpenseForm() {
       return;
     }
 
-    if (!data || data.length === 0) {
+    let existing = (data ?? []) as Category[];
+
+    const existingNames = new Set(existing.map((c) => c.name.toLowerCase()));
+
+    const missingDefaults = expenseCategories.filter(
+      (def) => !existingNames.has(def.name.toLowerCase()),
+    );
+
+    if (missingDefaults.length > 0) {
       const now = new Date().toISOString();
 
-      const seedRows = expenseCategories.map((cat) => ({
+      const seedRows = missingDefaults.map((cat) => ({
         user_id: userId,
         kind: "expense",
         name: cat.name,
@@ -94,24 +102,20 @@ export default function AddExpenseForm() {
 
       if (seedError) {
         console.error(seedError);
-        return;
+      } else {
+        const { data: refreshed, error: refreshError } = await supabase
+          .from("Category")
+          .select("id, name")
+          .eq("kind", "expense")
+          .eq("user_id", userId);
+
+        if (!refreshError && refreshed) {
+          existing = refreshed as Category[];
+        }
       }
-
-      const { data: refreshed, error: refreshError } = await supabase
-        .from("Category")
-        .select("id, name")
-        .eq("kind", "expense")
-        .eq("user_id", userId);
-
-      if (refreshError) {
-        console.error(refreshError);
-        return;
-      }
-
-      data = refreshed ?? [];
     }
 
-    setCategories(data as Category[]);
+    setCategories(existing);
   };
 
   const initialValues: ExpenseFormValues = {
@@ -315,6 +319,37 @@ export default function AddExpenseForm() {
               recentCategories={categoryOptions.slice(0, 6)}
               onSelect={(cat) => {
                 setFieldValue("categoryId", cat.id);
+              }}
+              onCreateNew={async (name) => {
+                const { data: userData, error: userError } =
+                  await supabase.auth.getUser();
+                if (userError || !userData?.user) {
+                  console.error(userError);
+                  return;
+                }
+
+                const userId = userData.user.id;
+                const now = new Date().toISOString();
+
+                const { data, error } = await supabase
+                  .from("Category")
+                  .insert({
+                    user_id: userId,
+                    kind: "expense",
+                    name,
+                    icon_key: name,
+                    updated_at: now,
+                  })
+                  .select("id, name")
+                  .single();
+
+                if (error || !data) {
+                  console.error(error);
+                  return;
+                }
+
+                await fetchCategories();
+                setFieldValue("categoryId", data.id);
               }}
             />
 

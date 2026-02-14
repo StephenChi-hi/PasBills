@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Paragraph1 } from "@/common/ui/Text";
 import { HiOutlineArrowPath, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { X } from "lucide-react";
@@ -16,6 +16,7 @@ interface CategoryModalProps {
   onSelect: (category: Category) => void;
   recentCategories: Category[];
   allCategories: Category[];
+  onCreateNew?: (name: string) => void;
 }
 
 const CategoryModal: React.FC<CategoryModalProps> = ({
@@ -24,8 +25,38 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   onSelect,
   recentCategories,
   allCategories,
+  onCreateNew,
 }) => {
   if (!isOpen) return null;
+
+  const [search, setSearch] = useState("");
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredRecent = useMemo(
+    () =>
+      !normalizedSearch
+        ? recentCategories
+        : recentCategories.filter((cat) =>
+            cat.name.toLowerCase().includes(normalizedSearch),
+          ),
+    [recentCategories, normalizedSearch],
+  );
+
+  const filteredAll = useMemo(
+    () =>
+      !normalizedSearch
+        ? allCategories
+        : allCategories.filter((cat) =>
+            cat.name.toLowerCase().includes(normalizedSearch),
+          ),
+    [allCategories, normalizedSearch],
+  );
+
+  const canCreate =
+    !!onCreateNew &&
+    !!normalizedSearch &&
+    !allCategories.some((cat) => cat.name.toLowerCase() === normalizedSearch);
 
   const CategoryItem = ({ cat }: { cat: Category }) => (
     <button
@@ -64,9 +95,29 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
           <input
             type="text"
             placeholder="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-gray-100 rounded-xl py-3 pl-10 pr-4 outline-none text-sm"
           />
         </div>
+
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => {
+              const name = search.trim();
+              if (!name) return;
+              onCreateNew?.(name);
+              onClose();
+            }}
+            className="mt-3 w-full flex items-center justify-between rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-xs font-medium text-gray-700 active:scale-[0.98] transition-transform"
+          >
+            <span>Create new category</span>
+            <span className="truncate max-w-[160px] text-right text-gray-900">
+              “{search.trim()}”
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-10">
@@ -76,7 +127,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
             Recent
           </Paragraph1>
           <div className="grid grid-cols-3 gap-y-6">
-            {recentCategories.map((cat) => (
+            {filteredRecent.map((cat) => (
               <CategoryItem key={`recent-${cat.id}`} cat={cat} />
             ))}
           </div>
@@ -88,7 +139,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
             All
           </Paragraph1>
           <div className="grid grid-cols-3 gap-y-8">
-            {allCategories.map((cat) => (
+            {filteredAll.map((cat) => (
               <CategoryItem key={`all-${cat.id}`} cat={cat} />
             ))}
           </div>

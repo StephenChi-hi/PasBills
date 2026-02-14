@@ -89,14 +89,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </button>
           <button
             onClick={() => navigate("/settings")}
-            className="block hover:text-blue-600 cursor-pointer text-left w-full flex items-center gap-2 mt-4"
+            className=" hover:text-blue-600 cursor-pointer text-left w-full flex items-center gap-2 mt-4"
           >
             <Settings className="w-4 h-4" />
             Settings
           </button>
           <button
             onClick={() => setConfirmLogout(true)}
-            className="block text-red-600 hover:text-red-700 cursor-pointer text-left w-full flex items-center gap-2"
+            className=" text-red-600 hover:text-red-700 cursor-pointer text-left w-full flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
             Log out
