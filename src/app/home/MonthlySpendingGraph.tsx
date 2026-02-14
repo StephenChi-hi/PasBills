@@ -11,20 +11,10 @@ import {
 
 interface Props {
   currencySymbol: string;
+  data: { day: string; amount: number }[];
 }
 
-const data = [
-  { day: "1", amount: 1200 },
-  { day: "5", amount: 1800 },
-  { day: "10", amount: 2400 },
-  { day: "15", amount: 3200 },
-  { day: "20", amount: 4100 },
-  { day: "25", amount: 5146 },
-  { day: "30", amount: 6146 },
-];
-
-
-export default function MonthlySpendingGraph({ currencySymbol }: Props) {
+export default function MonthlySpendingGraph({ currencySymbol, data }: Props) {
   return (
     <div className="bg-[#E5E7EB] rounded-xl p-4 h-32">
       <ResponsiveContainer width="100%" height="100%">

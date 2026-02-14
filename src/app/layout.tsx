@@ -5,6 +5,7 @@ import BottomNav from "@/common/layout/BottomNav";
 import AppLayout from "@/common/layout/AppLayout";
 import { AuthProvider } from "@/providers/AuthProvider";
 import AuthGate from "./auth/AuthGate";
+import SplashScreen from "./SplashScreen";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,17 +19,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PasBills – Smart Money, Bills & Investments Manager",
-    template: "%s | PasBills",
+    default: "PassBills – Smart Money, Bills & Investments Manager",
+    template: "%s | PassBills",
   },
 
   description:
-    "PasBills is a smart personal finance app that helps you manage bills, track income and expenses, create budgets, monitor accounts, and manage investments in one secure place.",
+    "PassBills is a smart personal finance app that helps you manage bills, track income and expenses, create budgets, monitor accounts, and manage investments in one secure place.",
 
-  applicationName: "PasBills",
+  applicationName: "PassBills",
 
   keywords: [
-    "PasBills",
+    "PassBills",
     "bill management app",
     "money management",
     "expense tracker",
@@ -39,24 +40,24 @@ export const metadata: Metadata = {
     "wealth management",
   ],
 
-  authors: [{ name: "PasBills Team" }],
-  creator: "PasBills",
-  publisher: "PasBills",
+  authors: [{ name: "PassBills Team" }],
+  creator: "PassBills",
+  publisher: "PassBills",
 
-  metadataBase: new URL("https://pasbills.app"), // change when domain is final
+  metadataBase: new URL("https://passbills.app"), // change when domain is final
 
   openGraph: {
-    title: "PasBills – Smart Money, Bills & Investments Manager",
+    title: "PassBills – Smart Money, Bills & Investments Manager",
     description:
-      "Manage bills, budgets, expenses, accounts, and investments with PasBills. One app for complete financial control.",
-    url: "https://pasbills.app",
-    siteName: "PasBills",
+      "Manage bills, budgets, expenses, accounts, and investments with PassBills. One app for complete financial control.",
+    url: "https://passbills.app",
+    siteName: "PassBills",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "PasBills – Personal Finance Management App",
+        alt: "PassBills – Personal Finance Management App",
       },
     ],
     locale: "en_US",
@@ -65,11 +66,11 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "PasBills – Smart Money, Bills & Investments Manager",
+    title: "PassBills – Smart Money, Bills & Investments Manager",
     description:
-      "Track bills, manage budgets, monitor accounts, and grow your investments with PasBills.",
+      "Track bills, manage budgets, monitor accounts, and grow your investments with PassBills.",
     images: ["/og-image.png"],
-    creator: "@pasbills", // optional
+    creator: "@passbills", // optional
   },
 
   robots: {
@@ -87,6 +88,17 @@ export const metadata: Metadata = {
   category: "finance",
 
   themeColor: "#0F766E", // Tailwind teal-700 (trust & finance)
+
+  manifest: "/manifest.json",
+
+  icons: {
+    icon: [
+      { url: "/logo.png", sizes: "192x192", type: "image/png" },
+      { url: "/logo.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/logo.png", sizes: "192x192", type: "image/png" }],
+    shortcut: [{ url: "/logo.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
@@ -99,8 +111,10 @@ export default function RootLayout({
       <body className={` pb-25 [100px]`}>
         <AuthProvider>
           <AuthGate>
-            <AppLayout> {children} </AppLayout>
-            <BottomNav />{" "}
+            <SplashScreen>
+              <AppLayout>{children}</AppLayout>
+              <BottomNav />
+            </SplashScreen>
           </AuthGate>
         </AuthProvider>
       </body>

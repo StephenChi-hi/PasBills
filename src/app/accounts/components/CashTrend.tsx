@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Paragraph1 } from "@/common/ui/Text";
 import {
   LineChart,
@@ -11,24 +11,123 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { supabase } from "@/util/supabase/client";
+import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
-const data = [
-  { month: "Dec", amount: 0 },
-  { month: "Jan", amount: 0 },
-  { month: "Feb", amount: 0 },
-  { month: "Mar", amount: 0 },
-  { month: "Apr", amount: 0 },
-  { month: "May", amount: 0 },
-  { month: "Jun", amount: 0 },
-  { month: "Jul", amount: 0 },
-  { month: "Aug", amount: 0 },
-  { month: "Sep", amount: 0 },
-  { month: "Oct", amount: 0 },
-  { month: "Nov", amount: 5000 },
-  { month: "Dec", amount: 1527977.95 },
-];
+interface CashTrendPoint {
+  month: string;
+  amount: number;
+}
 
 const CashTrend: React.FC = () => {
+  const [data, setData] = useState<CashTrendPoint[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        setIsMobile(window.innerWidth < 640);
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        return;
+      }
+
+      const userId = userData.user.id;
+
+      const { data: accounts, error: accountsError } = await supabase
+        .from("Account")
+        .select("id, category")
+        .eq("user_id", userId);
+
+      if (accountsError || !accounts) {
+        return;
+      }
+
+      const cashAccountIds = (accounts as any[])
+        .filter((acc) => acc.category === "cash")
+        .map((acc) => acc.id);
+
+      const now = new Date();
+      const startRange = startOfMonth(subMonths(now, 11));
+      const endRange = endOfMonth(now);
+
+      if (cashAccountIds.length === 0) {
+        const emptySeries: CashTrendPoint[] = Array.from({ length: 12 }).map(
+          (_, idx) => {
+            const monthDate = startOfMonth(subMonths(now, 11 - idx));
+            return {
+              month: format(monthDate, "MMM"),
+              amount: 0,
+            };
+          },
+        );
+        setData(emptySeries);
+        return;
+      }
+
+      const { data: txs, error: txError } = await supabase
+        .from("Transaction")
+        .select("amount, type, date, account_id")
+        .eq("user_id", userId)
+        .in("account_id", cashAccountIds)
+        .gte("date", startRange.toISOString())
+        .lte("date", endRange.toISOString());
+
+      if (txError || !txs) {
+        return;
+      }
+
+      const monthMap = new Map<string, number>();
+
+      // Initialize all 12 months with zero
+      for (let i = 11; i >= 0; i--) {
+        const monthDate = startOfMonth(subMonths(now, i));
+        const key = format(monthDate, "yyyy-MM");
+        monthMap.set(key, 0);
+      }
+
+      (txs as any[]).forEach((tx) => {
+        const d = new Date(tx.date);
+        const key = format(d, "yyyy-MM");
+        if (!monthMap.has(key)) return;
+
+        const current = monthMap.get(key) ?? 0;
+        const amount = Number(tx.amount) || 0;
+
+        if (tx.type === "income") {
+          monthMap.set(key, current + amount);
+        } else if (tx.type === "expense") {
+          monthMap.set(key, current - amount);
+        }
+      });
+
+      const series: CashTrendPoint[] = Array.from(monthMap.entries())
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([key, value]) => {
+          const monthDate = new Date(key + "-01T00:00:00");
+          return {
+            month: format(monthDate, "MMM"),
+            amount: value,
+          };
+        });
+
+      setData(series);
+    };
+
+    load();
+  }, []);
+
   const formatYAxis = (value: number) => {
     if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
     if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -58,7 +157,7 @@ const CashTrend: React.FC = () => {
               tickLine={false}
               axisLine
               tick={{ fontSize: 11, fill: "#111827" }}
-              interval={window.innerWidth < 640 ? 3 : 1} // fewer ticks on mobile
+              interval={isMobile ? 3 : 1} // fewer ticks on mobile
             />
 
             {/* Hide Y-axis on mobile */}

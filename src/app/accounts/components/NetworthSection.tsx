@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Paragraph1 } from "@/common/ui/Text";
 import { ChevronRight } from "lucide-react";
 import {
@@ -11,24 +11,77 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
+import { supabase } from "@/util/supabase/client";
 
-// Sample data to represent a net worth trend over a year
-const data = [
-  { month: "Jan", value: 1800000 },
-  { month: "Feb", value: 1850000 },
-  { month: "Mar", value: 1920000 },
-  { month: "Apr", value: 1900000 },
-  { month: "May", value: 2050000 },
-  { month: "Jun", value: 2100000 },
-  { month: "Jul", value: 2250000 },
-  { month: "Aug", value: 2200000 },
-  { month: "Sep", value: 2300000 },
-  { month: "Oct", value: 2350000 },
-  { month: "Nov", value: 2320000 },
-  { month: "Dec", value: 2362574.23 },
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 const NetworthSection: React.FC = () => {
+  const [networth, setNetworth] = useState(0);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError || !userData.user) return;
+
+      const [accountsRes, investmentsRes] = await Promise.all([
+        supabase
+          .from("Account")
+          .select("balance")
+          .eq("user_id", userData.user.id),
+        supabase
+          .from("Investment")
+          .select("current_value")
+          .eq("user_id", userData.user.id),
+      ]);
+
+      const accounts = (accountsRes.data || []) as any[];
+      const investments = (investmentsRes.data || []) as any[];
+
+      const accSum = accounts.reduce(
+        (sum, a) => sum + (Number(a.balance) || 0),
+        0,
+      );
+      const invSum = investments.reduce(
+        (sum, i) => sum + (Number(i.current_value) || 0),
+        0,
+      );
+
+      setNetworth(accSum + invSum);
+    };
+
+    load();
+
+    const handler = () => {
+      load();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("accounts-updated", handler);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("accounts-updated", handler);
+      }
+    };
+  }, []);
+
+  const chartData = months.map((m) => ({ month: m, value: networth }));
+
   return (
     <div className="w-full bg-white border rounded-2xl border-gray-200 p-4 ">
       {/* --- Header Section --- */}
@@ -38,7 +91,11 @@ const NetworthSection: React.FC = () => {
             Networth
           </Paragraph1>
           <Paragraph1 className="text-3xl font-bold text-gray-900">
-            ₦2,362,574.23
+            ₦
+            {networth.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </Paragraph1>
         </div>
 
@@ -53,7 +110,7 @@ const NetworthSection: React.FC = () => {
       <div className="h-64 w-full relative">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={data}
+            data={chartData}
             margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
           >
             <defs>
@@ -108,6 +165,5 @@ const NetworthSection: React.FC = () => {
     </div>
   );
 };
-
 
 export default NetworthSection;

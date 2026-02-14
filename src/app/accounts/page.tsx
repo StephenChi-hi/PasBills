@@ -4,6 +4,7 @@ import InvestmentsCard from "./components/InvestmentsCard";
 import { Paragraph3 } from "@/common/ui/Text";
 import NetworthSection from "./components/NetworthSection";
 import CashCard from "./components/CashCard";
+import CreditCard from "./components/CreditCard";
 import CashTrend from "./components/CashTrend";
 import InvestmentTrend from "./components/InvestmentTrend";
 import AccountCreationFlow from "./components/AccountCreationFlow";
@@ -17,8 +18,8 @@ function page() {
         <Paragraph3 className=" font-bold mb-2"> Accounts</Paragraph3>{" "}
         <AccountCreationFlow />
       </div>
-      <div className=" grid sm:grid-cols-3 grid-cols-1 gap-4">
-        <NetworthSection /> <CashCard /> <InvestmentsCard />
+      <div className=" grid sm:grid-cols-4 grid-cols-1 gap-4">
+        <NetworthSection /> <CashCard /> <CreditCard /> <InvestmentsCard />
       </div>
       <Paragraph3 className=" font-bold mb-2 mt-4"> Trends</Paragraph3>
       <div className=" grid sm:grid-cols-3 grid-cols-1 gap-4">

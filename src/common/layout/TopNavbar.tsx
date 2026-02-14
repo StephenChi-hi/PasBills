@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, Download, Menu, User } from "lucide-react";
-import Image from "next/image";
 import { Paragraph1 } from "../ui/Text";
+import { useAuth } from "@/providers/AuthProvider";
+import { supabase } from "@/util/supabase/client";
 
 interface TopNavbarProps {
   isHome?: boolean;
@@ -17,6 +19,40 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
   pageDescription,
   onToggleSidebar,
 }) => {
+  const { user } = useAuth();
+  const [profileName, setProfileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setProfileName(null);
+      return;
+    }
+
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("UserProfile")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!error && data?.full_name) {
+        setProfileName(data.full_name as string);
+      } else {
+        setProfileName(null);
+      }
+    };
+
+    load();
+  }, [user?.id]);
+
+  const rawName =
+    profileName ||
+    (user?.user_metadata as any)?.full_name ||
+    user?.email?.split("@")[0] ||
+    "there";
+
+  const firstName = rawName.trim().split(" ")[0];
+
   return (
     <header
       className="
@@ -30,22 +66,24 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
         {/* LEFT: Profile OR Toggle */}
         <div className="flex items-center gap-3">
           {isHome ? (
-                      <div onClick={onToggleSidebar}className=" flex item-center  gap-2 " >
-                        
+            <div
+              onClick={onToggleSidebar}
+              className="flex items-center gap-2 cursor-pointer"
+            >
               {/* Avatar */}
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                 <span className="text-blue-600 font-semibold">
-                  <User />{" "}
+                  <User />
                 </span>
               </div>
 
               {/* Greeting */}
               <div className="leading-tight">
                 <Paragraph1 className="font-semibold text-gray-900">
-                  Hi Chisom{" "}
+                  Hi {firstName}
                 </Paragraph1>
                 <Paragraph1 className="text-sm text-gray-500">
-                  Good morning
+                  Welcome back
                 </Paragraph1>
               </div>
             </div>
@@ -65,9 +103,13 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
         {/* CENTER: Page title (only on non-home pages) */}
         {!isHome && (
           <div className="absolute left-1/2 -translate-x-1/2 text-center">
-            <Paragraph1 className="font-semibold text-gray-900">{pageTitle}</Paragraph1>
+            <Paragraph1 className="font-semibold text-gray-900">
+              {pageTitle}
+            </Paragraph1>
             {pageDescription && (
-              <Paragraph1 className="text-xs text-gray-500">{pageDescription}</Paragraph1>
+              <Paragraph1 className="text-xs text-gray-500">
+                {pageDescription}
+              </Paragraph1>
             )}
           </div>
         )}

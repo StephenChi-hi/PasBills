@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
+import SelectionModal from "./SelectionModal";
+import { Wallet } from "lucide-react";
 
 interface Account {
   id: string;
@@ -24,6 +26,8 @@ interface TransferFormValues {
 export default function TransferForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isFromModalOpen, setIsFromModalOpen] = useState(false);
+  const [isToModalOpen, setIsToModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -34,7 +38,7 @@ export default function TransferForm() {
     if (userError) return console.error(userError);
 
     const { data, error } = await supabase
-      .from("accounts")
+      .from("Account")
       .select("*")
       .eq("user_id", userData?.user?.id);
     if (error) console.error(error);
@@ -50,6 +54,16 @@ export default function TransferForm() {
     photoUrl: "",
   };
 
+  const accountOptions = useMemo(
+    () =>
+      accounts.map((acc) => ({
+        id: acc.id,
+        name: `${acc.name} (Balance: ₦${acc.balance.toLocaleString()})`,
+        icon: <Wallet className="w-5 h-5 text-gray-700" />,
+      })),
+    [accounts],
+  );
+
   const handleSubmit = async (values: TransferFormValues) => {
     if (!values.fromAccountId || !values.toAccountId)
       return alert("Select both accounts!");
@@ -57,31 +71,30 @@ export default function TransferForm() {
       return alert("From and To accounts cannot be the same!");
     setLoading(true);
 
-      try {
-
+    try {
       const fromAccount = accounts.find(
-        (a) => a.id.toString() === values.fromAccountId
+        (a) => a.id.toString() === values.fromAccountId,
       );
       const toAccount = accounts.find(
-        (a) => a.id.toString() === values.toAccountId
+        (a) => a.id.toString() === values.toAccountId,
       );
       if (!fromAccount || !toAccount) throw new Error("Account not found");
 
       // Debit from source
       await supabase
-        .from("accounts")
+        .from("Account")
         .update({ balance: fromAccount.balance - values.amount })
         .eq("id", fromAccount.id);
 
       // Credit to destination
       await supabase
-        .from("accounts")
+        .from("Account")
         .update({ balance: toAccount.balance + values.amount })
         .eq("id", toAccount.id);
 
       // Record transaction
       const { data: userData } = await supabase.auth.getUser();
-      await supabase.from("transactions").insert([
+      await supabase.from("Transaction").insert([
         {
           user_id: userData?.user?.id,
           account_id: fromAccount.id,
@@ -107,85 +120,143 @@ export default function TransferForm() {
   return (
     <div className="">
       <Formik initialValues={initialValues} onSubmit={handleSubmit}>
-        {() => (
-          <Form className="space-y-4">
-            <div>
-              <Paragraph1 className="block mb-1">Amount</Paragraph1>
-              <Field
-                type="number"
-                name="amount"
-                className="w-full border p-2 rounded-xl border-gray-200"
-              />
-            </div>
+        {({ values, setFieldValue }) => (
+          <>
+            <Form className="space-y-4">
+              <div>
+                <Paragraph1 className="block mb-1">Amount</Paragraph1>
+                <Field
+                  type="number"
+                  name="amount"
+                  className="w-full border p-2 rounded-xl border-gray-200"
+                />
+              </div>
 
-            <div>
-              <Paragraph1 className="block mb-1">From Account</Paragraph1>
-              <Field
-                as="select"
-                name="fromAccountId"
-                className="w-full border p-2 rounded-xl border-gray-200"
+              <div>
+                <Paragraph1 className="block mb-1">From Account</Paragraph1>
+                <button
+                  type="button"
+                  onClick={() => setIsFromModalOpen(true)}
+                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const selected = accountOptions.find(
+                        (a) => a.id === values.fromAccountId,
+                      );
+                      if (selected) {
+                        return (
+                          <>
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                              {selected.icon}
+                            </div>
+                            <Paragraph1 className="text-sm font-medium">
+                              {selected.name}
+                            </Paragraph1>
+                          </>
+                        );
+                      }
+                      return (
+                        <Paragraph1 className="text-sm text-gray-400">
+                          Select Source Account
+                        </Paragraph1>
+                      );
+                    })()}
+                  </div>
+                </button>
+              </div>
+
+              <div>
+                <Paragraph1 className="block mb-1">To Account</Paragraph1>
+                <button
+                  type="button"
+                  onClick={() => setIsToModalOpen(true)}
+                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const selected = accountOptions.find(
+                        (a) => a.id === values.toAccountId,
+                      );
+                      if (selected) {
+                        return (
+                          <>
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                              {selected.icon}
+                            </div>
+                            <Paragraph1 className="text-sm font-medium">
+                              {selected.name}
+                            </Paragraph1>
+                          </>
+                        );
+                      }
+                      return (
+                        <Paragraph1 className="text-sm text-gray-400">
+                          Select Destination Account
+                        </Paragraph1>
+                      );
+                    })()}
+                  </div>
+                </button>
+              </div>
+
+              <div>
+                <Paragraph1 className="block mb-1">Date</Paragraph1>
+                <Field
+                  type="date"
+                  name="date"
+                  className="w-full border p-2 rounded-xl border-gray-200"
+                />
+              </div>
+
+              <div>
+                <Paragraph1 className="block mb-1">Notes</Paragraph1>
+                <Field
+                  as="textarea"
+                  name="notes"
+                  className="w-full border p-2 rounded-xl border-gray-200"
+                />
+              </div>
+
+              <div>
+                <Paragraph1 className="block mb-1">Attach Photo URL</Paragraph1>
+                <Field
+                  type="text"
+                  name="photoUrl"
+                  placeholder="https://..."
+                  className="w-full border p-2 rounded-xl border-gray-200"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-purple-600 text-white p-2 rounded"
+                disabled={loading}
               >
-                <option value="">Select Source Account</option>
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id.toString()}>
-                    {acc.name} (Balance: ${acc.balance})
-                  </option>
-                ))}
-              </Field>
-            </div>
+                {loading ? "Saving..." : "Add Transfer"}
+              </button>
+            </Form>
 
-            <div>
-              <Paragraph1 className="block mb-1">To Account</Paragraph1>
-              <Field
-                as="select"
-                name="toAccountId"
-                className="w-full border p-2 rounded-xl border-gray-200"
-              >
-                <option value="">Select Destination Account</option>
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id.toString()}>
-                    {acc.name} (Balance: ${acc.balance})
-                  </option>
-                ))}
-              </Field>
-            </div>
+            <SelectionModal
+              title="From Account"
+              isOpen={isFromModalOpen}
+              onClose={() => setIsFromModalOpen(false)}
+              options={accountOptions}
+              onSelect={(option) => {
+                setFieldValue("fromAccountId", option.id);
+              }}
+            />
 
-            <div>
-              <Paragraph1 className="block mb-1">Date</Paragraph1>
-              <Field
-                type="date"
-                name="date"
-                className="w-full border p-2 rounded-xl border-gray-200"
-              />
-            </div>
-
-            <div>
-              <Paragraph1 className="block mb-1">Notes</Paragraph1>
-              <Field
-                as="textarea"
-                name="notes"
-                className="w-full border p-2 rounded-xl border-gray-200"
-              />
-            </div>
-
-            <div>
-              <Paragraph1 className="block mb-1">Attach Photo URL</Paragraph1>
-              <Field
-                type="text"
-                name="photoUrl"
-                placeholder="https://..."
-                className="w-full border p-2 rounded-xl border-gray-200"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-purple-600 text-white p-2 rounded"
-              disabled={loading}
-            >
-              {loading ? "Saving..." : "Add Transfer"}
-            </button>
-          </Form>
+            <SelectionModal
+              title="To Account"
+              isOpen={isToModalOpen}
+              onClose={() => setIsToModalOpen(false)}
+              options={accountOptions}
+              onSelect={(option) => {
+                setFieldValue("toAccountId", option.id);
+              }}
+            />
+          </>
         )}
       </Formik>
     </div>

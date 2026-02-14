@@ -74,6 +74,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
   const [includeBalance, setIncludeBalance] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -84,6 +85,13 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
   });
 
   const handleCreate = async () => {
+    setErrorMessage(null);
+
+    if (!form.name.trim()) {
+      setErrorMessage("Please enter an account name.");
+      return;
+    }
+
     setLoading(true);
 
     const {
@@ -92,21 +100,41 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
     if (!user) {
       setLoading(false);
+      setErrorMessage("You must be logged in to create an account.");
       return;
     }
 
-    await supabase.from("accounts").insert({
+    const startingBalance = Number(form.balance || 0);
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    const { error } = await supabase.from("Account").insert({
+      id,
       user_id: user.id,
       type_id: selectedType?.id,
       type_name: selectedType?.name,
-      category: selectedType?.category, // <-- add this
+      category: selectedType?.category,
       name: form.name,
       account_number: form.number,
-      starting_balance: Number(form.balance || 0),
+      starting_balance: startingBalance,
+      balance: startingBalance,
       currency: form.currency,
       notes: form.notes,
       include_in_net_worth: includeBalance,
+      updated_at: now,
     });
+
+    if (error) {
+      console.error("Error creating account", error);
+      setErrorMessage(error.message ?? "Could not create account.");
+      setLoading(false);
+      return;
+    }
+
+    // Notify other components (CashCard, CreditCard, NetworthSection) to refetch
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("accounts-updated"));
+    }
 
     setLoading(false);
     onClose();
@@ -183,6 +211,12 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
+
+          {errorMessage && (
+            <Paragraph1 className="text-xs text-red-500">
+              {errorMessage}
+            </Paragraph1>
+          )}
 
           <div className="flex items-center justify-between pt-4">
             <div className="flex items-center gap-3">

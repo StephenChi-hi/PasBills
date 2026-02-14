@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 interface Category {
   id: string;
   name: string;
-  icon: React.ElementType;
+  icon: React.ReactNode;
   color: string;
 }
 
@@ -38,7 +38,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
       <div
         className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform group-active:scale-90 ${cat.color}`}
       >
-        <cat.icon className="w-7 h-7 text-gray-700" />
+        {cat.icon}
       </div>
       <Paragraph1 className="text-[11px] font-bold text-gray-800 text-center leading-tight">
         {cat.name}

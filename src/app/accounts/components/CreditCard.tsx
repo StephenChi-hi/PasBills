@@ -5,29 +5,26 @@ import { Paragraph1 } from "@/common/ui/Text";
 import {
   Pencil,
   ChevronRight,
-  Building,
-  Building2Icon,
-  LucidePiggyBank,
+  CreditCard as CreditCardIcon,
 } from "lucide-react";
 import { supabase } from "@/util/supabase/client";
 
-interface InvestmentAccount {
+interface CreditAccount {
   id: string;
   name: string;
   type_name: string;
   balance: number;
-  icon: React.ElementType;
 }
 
-const CashCard: React.FC = () => {
-  const [accounts, setAccounts] = useState<InvestmentAccount[]>([]);
+const CreditCard: React.FC = () => {
+  const [accounts, setAccounts] = useState<CreditAccount[]>([]);
   const [totalBalance, setTotalBalance] = useState(0);
 
   useEffect(() => {
-    fetchCashAccounts();
+    fetchCreditAccounts();
 
     const handler = () => {
-      fetchCashAccounts();
+      fetchCreditAccounts();
     };
 
     if (typeof window !== "undefined") {
@@ -41,49 +38,37 @@ const CashCard: React.FC = () => {
     };
   }, []);
 
-  const fetchCashAccounts = async () => {
+  const fetchCreditAccounts = async () => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error(userError);
+    if (userError || !userData.user) {
       return;
     }
 
     const { data, error } = await supabase
       .from("Account")
-      .select("*")
-      .eq("user_id", userData?.user?.id)
-      .eq("category", "cash"); // Only cash accounts
+      .select("id, name, type_name, balance")
+      .eq("user_id", userData.user.id)
+      .eq("category", "credit");
 
-    if (error) {
-      console.error(error);
-      return;
-    }
+    if (error || !data) return;
 
-    // Map icons (you can choose different icons per type)
-    const mappedAccounts: InvestmentAccount[] = (data || []).map((acc) => ({
+    const mapped: CreditAccount[] = (data as any[]).map((acc) => ({
       id: acc.id,
       name: acc.name,
       type_name: acc.type_name,
-      balance: acc.balance,
-      icon: acc.type_name.toLowerCase().includes("bank")
-        ? Building2Icon
-        : LucidePiggyBank,
+      balance: Number(acc.balance) || 0,
     }));
 
-    setAccounts(mappedAccounts);
-
-    // Calculate total balance
-    const total = mappedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-    setTotalBalance(total);
+    setAccounts(mapped);
+    setTotalBalance(mapped.reduce((sum, a) => sum + a.balance, 0));
   };
 
   return (
     <div className="border rounded-2xl border-gray-200 p-4">
-      {/* --- Header Section --- */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <Paragraph1 className="text-lg font-black text-gray-900">
-            Cash
+            Credit
           </Paragraph1>
           <button className="hover:opacity-70 transition-opacity">
             <Pencil className="w-4 h-4 text-blue-400" strokeWidth={2.5} />
@@ -98,7 +83,6 @@ const CashCard: React.FC = () => {
         </button>
       </div>
 
-      {/* --- Accounts List Container --- */}
       <div className="space-y-2">
         {accounts.map((account, index) => (
           <div
@@ -109,7 +93,7 @@ const CashCard: React.FC = () => {
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full border-[1.5px] border-blue-500 flex items-center justify-center bg-white">
-                <account.icon className="w-7 h-7 text-blue-500" />
+                <CreditCardIcon className="w-7 h-7 text-blue-500" />
               </div>
 
               <div className="flex flex-col">
@@ -132,4 +116,4 @@ const CashCard: React.FC = () => {
   );
 };
 
-export default CashCard;
+export default CreditCard;

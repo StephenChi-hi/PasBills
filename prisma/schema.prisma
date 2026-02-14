@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Only manage the public schema so Prisma never
+  // touches Supabase's auth.* tables.
+  schemas  = ["public"]
+}
+
+/// Application user profile (Supabase auth.users is used for authentication)
+model UserProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid // references auth.users.id in Supabase
+  fullName  String?  @map("full_name")
+  country   String?  @default("NG")
+  currency  String?  @default("NGN")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accounts      Account[]
+  transactions  Transaction[]
+  investments   Investment[]
+  bills         Bill[]
+  budgets       Budget[]
+  categories    Category[]
+  taxProfiles   TaxProfile[]
+
+  @@schema("public")
+}
+
+/// Financial account (cash, bank, credit, investment, etc.)
+model Account {
+  id                 String        @id @default(uuid()) @db.Uuid
+  userId             String        @map("user_id") @db.Uuid
+  typeId             String?       @map("type_id")
+  typeName           String?       @map("type_name")
+  /// High-level bucket: "cash" | "credit" | "investment" | "other"
+  category           String
+  name               String
+  accountNumber      String?       @map("account_number")
+  startingBalance    Decimal       @map("starting_balance")
+  /// Current running balance used by cash flow & net worth
+  balance            Decimal
+  currency           String        @default("NGN")
+  notes              String?
+  includeInNetWorth  Boolean       @map("include_in_net_worth") @default(true)
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  userProfile        UserProfile   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  transactions       Transaction[]
+  transfersTo        Transaction[] @relation("TransferToAccount")
+  investments        Investment[]
+  bills              Bill[]
+
+  @@schema("public")
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+
+  @@schema("public")
+}
+
+/// Single money movement (income, expense, transfer)
+model Transaction {
+  id                  String          @id @default(uuid()) @db.Uuid
+  userId              String          @map("user_id") @db.Uuid
+  accountId           String          @map("account_id") @db.Uuid
+  /// Optional target account for transfers
+  transferToAccountId String?         @map("transfer_to_account_id") @db.Uuid
+  type                TransactionType
+  /// Optional category (for transfers it can be null)
+  categoryId          String?         @map("category_id") @db.Uuid
+  amount              Decimal
+  /// Stored as timestamp with time zone
+  date                DateTime
+  notes               String?
+  photoUrl            String?         @map("photo_url")
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  userProfile         UserProfile     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  account             Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transferToAccount   Account?        @relation("TransferToAccount", fields: [transferToAccountId], references: [id])
+  category            Category?       @relation(fields: [categoryId], references: [id])
+
+  @@schema("public")
+}
+
+/// Income/expense category with icon metadata
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  /// "income" or "expense"
+  kind        String
+  name        String
+  /// Lucide icon key (e.g. "Coffee", "ShoppingCart")
+  iconKey     String   @map("icon_key")
+  /// Optional tailwind/hex color string
+  color       String?  @default("#E5E7EB")
+  /// Whether amounts under this category are taxable income in NG
+  isTaxable   Boolean  @map("is_taxable") @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userProfile UserProfile? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+  transactions Transaction[]
+  budgetItems  BudgetItem[]
+  bills        Bill[]
+
+  @@schema("public")
+}
+
+/// Long-term or short-term investment positions
+model Investment {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  accountId   String?  @map("account_id") @db.Uuid
+  name        String   // e.g. BTC, Apple Stock
+  kind        String   // e.g. "crypto", "stock", "mutual_fund"
+  units       Decimal?
+  costBasis   Decimal? @map("cost_basis")
+  currentValue Decimal @map("current_value")
+  currency    String   @default("NGN")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userProfile UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  account     Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@schema("public")
+}
+
+/// Recurring / one-off bills (can be linked to a category & an account)
+model Bill {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  accountId    String?  @map("account_id") @db.Uuid
+  categoryId   String?  @map("category_id") @db.Uuid
+  name         String
+  amount       Decimal
+  /// First due date
+  dueDate      DateTime @map("due_date")
+  /// "once" | "weekly" | "monthly" | "yearly"
+  frequency    String   @default("monthly")
+  isRecurring  Boolean  @map("is_recurring") @default(true)
+  status       String   @default("upcoming") // upcoming | paid | overdue
+  lastPaidDate DateTime? @map("last_paid_date")
+  nextDueDate  DateTime? @map("next_due_date")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  userProfile  UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  account      Account?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@schema("public")
+}
+
+/// High-level budget (e.g. Monthly budget)
+model Budget {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  name        String
+  /// "monthly" | "weekly" | "yearly" | "custom"
+  period      String       @default("monthly")
+  startDate   DateTime?    @map("start_date")
+  endDate     DateTime?    @map("end_date")
+  totalAmount Decimal      @map("total_amount")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  userProfile UserProfile  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  items       BudgetItem[]
+
+  @@schema("public")
+}
+
+/// Per-category allocation inside a budget
+model BudgetItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  budgetId   String   @map("budget_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  amount     Decimal
+
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+/// Nigeria tax profile per user (basic config for the calculator)
+model TaxProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  residency      String   @default("resident") // resident | non_resident
+  hasPension     Boolean  @map("has_pension") @default(true)
+  pensionRate    Decimal? @map("pension_rate") // e.g. 8.0
+  nhfRate        Decimal? @map("nhf_rate")
+  otherReliefs   Decimal? @map("other_reliefs")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  userProfile    UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+/// Static Nigerian tax bands used by the calculator
+model TaxBandNg {
+  id        Int      @id @default(autoincrement())
+  order     Int
+  lower     Decimal?
+  upper     Decimal?
+  rate      Decimal  // percentage, e.g. 7.00
+  label     String
+
+  @@schema("public")
+}
+
