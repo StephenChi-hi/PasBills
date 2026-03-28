@@ -6,9 +6,10 @@ import { supabase } from "@/util/supabase/client";
 
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
-import CategoryModal from "./CategoryModal";
-import SelectionModal from "./SelectionModal";
+import CategoryDropdown from "./CategoryDropdown";
+import AccountDropdown from "./AccountDropdown";
 import { expenseCategories } from "@/data/categories";
+import { getIconById } from "@/data/icons";
 import { Wallet } from "lucide-react";
 
 interface Account {
@@ -20,6 +21,7 @@ interface Account {
 interface Category {
   id: string;
   name: string;
+  icon_key?: string;
 }
 
 interface ExpenseFormValues {
@@ -35,8 +37,6 @@ export default function AddExpenseForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -68,7 +68,7 @@ export default function AddExpenseForm() {
 
     let { data, error } = await supabase
       .from("Category")
-      .select("id, name")
+      .select("id, name, icon_key")
       .eq("kind", "expense")
       .eq("user_id", userId);
 
@@ -88,11 +88,45 @@ export default function AddExpenseForm() {
     if (missingDefaults.length > 0) {
       const now = new Date().toISOString();
 
+      // Map category names to icon IDs for consistency
+      const iconIdMap: { [key: string]: string } = {
+        "Food & Drinks": "icon_3", // Coffee
+        Groceries: "icon_2", // Shopping Cart
+        "Dining Out": "icon_4", // Utensils
+        Shopping: "icon_2", // Shopping Cart
+        Transport: "icon_5", // Car
+        Fuel: "icon_6", // Fuel
+        "Housing / Rent": "icon_7", // Home
+        "Home Utilities": "icon_8", // Zap
+        "Internet & Phone": "icon_9", // Smartphone
+        Subscriptions: "icon_10", // Subscription
+        "Health & Medical": "icon_11", // Heart
+        "Gifts & Donations": "icon_12", // Gift
+        Education: "icon_13", // Book
+        "Kids & Childcare": "icon_14", // Baby
+        "Personal Care & Beauty": "icon_15", // Palette
+        Entertainment: "icon_16", // Music
+        "Movies & Shows": "icon_17", // Film
+        Travel: "icon_18", // Plane
+        "Car Maintenance": "icon_19", // Wrench
+        "Parking & Tolls": "icon_20", // Parking
+        Insurance: "icon_21", // Shield
+        "Credit Card Payment": "icon_22", // Credit Card
+        "Loan Repayment": "icon_22", // Credit Card
+        "Business Expenses": "icon_24", // Briefcase
+        "Office & Work": "icon_24", // Briefcase
+        Pets: "icon_26", // Pet
+        "Gym & Fitness": "icon_27", // Fitness
+        "Streaming Services": "icon_17", // Film
+        "Market & Foodstuff": "icon_2", // Shopping Cart
+        Miscellaneous: "icon_30", // More
+      };
+
       const seedRows = missingDefaults.map((cat) => ({
         user_id: userId,
         kind: "expense",
         name: cat.name,
-        icon_key: cat.name,
+        icon_key: iconIdMap[cat.name] || "icon_30",
         updated_at: now,
       }));
 
@@ -105,7 +139,7 @@ export default function AddExpenseForm() {
       } else {
         const { data: refreshed, error: refreshError } = await supabase
           .from("Category")
-          .select("id, name")
+          .select("id, name, icon_key")
           .eq("kind", "expense")
           .eq("user_id", userId);
 
@@ -129,12 +163,15 @@ export default function AddExpenseForm() {
 
   const categoryOptions = useMemo(() => {
     return categories.map((cat) => {
-      const meta = expenseCategories.find((c) => c.name === cat.name);
+      const iconId = cat.icon_key || "icon_30";
+      const iconOption = getIconById(iconId);
       return {
         id: cat.id,
         name: cat.name,
-        icon: meta ? <meta.icon className="w-5 h-5 text-gray-700" /> : null,
-        color: "bg-gray-100",
+        icon: iconOption ? (
+          <iconOption.icon className="w-5 h-5 text-gray-700" />
+        ) : null,
+        color: iconOption?.color || "bg-gray-100",
       };
     });
   }, [categories]);
@@ -209,70 +246,30 @@ export default function AddExpenseForm() {
 
               <div>
                 <Paragraph1 className="block mb-1">Category</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = categoryOptions.find(
-                        (c) => c.id === values.categoryId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Category
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <CategoryDropdown
+                  selected={
+                    categoryOptions.find((c) => c.id === values.categoryId) ||
+                    null
+                  }
+                  categories={categoryOptions}
+                  onSelect={(cat) => {
+                    setFieldValue("categoryId", cat.id);
+                  }}
+                />
               </div>
 
               <div>
                 <Paragraph1 className="block mb-1">Account</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsAccountModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = accountOptions.find(
-                        (a) => a.id === values.accountId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Account
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <AccountDropdown
+                  selected={
+                    accountOptions.find((a) => a.id === values.accountId) ||
+                    null
+                  }
+                  accounts={accountOptions}
+                  onSelect={(acc) => {
+                    setFieldValue("accountId", acc.id);
+                  }}
+                />
               </div>
 
               <div>
@@ -311,57 +308,6 @@ export default function AddExpenseForm() {
                 {loading ? "Saving..." : "Add Expense"}
               </button>
             </Form>
-
-            <CategoryModal
-              isOpen={isCategoryModalOpen}
-              onClose={() => setIsCategoryModalOpen(false)}
-              allCategories={categoryOptions}
-              recentCategories={categoryOptions.slice(0, 6)}
-              onSelect={(cat) => {
-                setFieldValue("categoryId", cat.id);
-              }}
-              onCreateNew={async (name) => {
-                const { data: userData, error: userError } =
-                  await supabase.auth.getUser();
-                if (userError || !userData?.user) {
-                  console.error(userError);
-                  return;
-                }
-
-                const userId = userData.user.id;
-                const now = new Date().toISOString();
-
-                const { data, error } = await supabase
-                  .from("Category")
-                  .insert({
-                    user_id: userId,
-                    kind: "expense",
-                    name,
-                    icon_key: name,
-                    updated_at: now,
-                  })
-                  .select("id, name")
-                  .single();
-
-                if (error || !data) {
-                  console.error(error);
-                  return;
-                }
-
-                await fetchCategories();
-                setFieldValue("categoryId", data.id);
-              }}
-            />
-
-            <SelectionModal
-              title="Select Account"
-              isOpen={isAccountModalOpen}
-              onClose={() => setIsAccountModalOpen(false)}
-              options={accountOptions}
-              onSelect={(option) => {
-                setFieldValue("accountId", option.id);
-              }}
-            />
           </>
         )}
       </Formik>

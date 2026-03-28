@@ -5,7 +5,7 @@ import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
-import SelectionModal from "./SelectionModal";
+import AccountDropdown from "./AccountDropdown";
 import { Wallet } from "lucide-react";
 
 interface Account {
@@ -26,8 +26,6 @@ interface TransferFormValues {
 export default function TransferForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isFromModalOpen, setIsFromModalOpen] = useState(false);
-  const [isToModalOpen, setIsToModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -134,70 +132,32 @@ export default function TransferForm() {
 
               <div>
                 <Paragraph1 className="block mb-1">From Account</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsFromModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = accountOptions.find(
-                        (a) => a.id === values.fromAccountId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Source Account
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <AccountDropdown
+                  selected={
+                    accountOptions.find((a) => a.id === values.fromAccountId) ||
+                    null
+                  }
+                  accounts={accountOptions}
+                  placeholder="Select Source Account"
+                  onSelect={(acc) => {
+                    setFieldValue("fromAccountId", acc.id);
+                  }}
+                />
               </div>
 
               <div>
                 <Paragraph1 className="block mb-1">To Account</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsToModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = accountOptions.find(
-                        (a) => a.id === values.toAccountId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Destination Account
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <AccountDropdown
+                  selected={
+                    accountOptions.find((a) => a.id === values.toAccountId) ||
+                    null
+                  }
+                  accounts={accountOptions}
+                  placeholder="Select Destination Account"
+                  onSelect={(acc) => {
+                    setFieldValue("toAccountId", acc.id);
+                  }}
+                />
               </div>
 
               <div>
@@ -236,26 +196,6 @@ export default function TransferForm() {
                 {loading ? "Saving..." : "Add Transfer"}
               </button>
             </Form>
-
-            <SelectionModal
-              title="From Account"
-              isOpen={isFromModalOpen}
-              onClose={() => setIsFromModalOpen(false)}
-              options={accountOptions}
-              onSelect={(option) => {
-                setFieldValue("fromAccountId", option.id);
-              }}
-            />
-
-            <SelectionModal
-              title="To Account"
-              isOpen={isToModalOpen}
-              onClose={() => setIsToModalOpen(false)}
-              options={accountOptions}
-              onSelect={(option) => {
-                setFieldValue("toAccountId", option.id);
-              }}
-            />
           </>
         )}
       </Formik>

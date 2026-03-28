@@ -62,33 +62,51 @@ export const accountTypes: AccountSection[] = [
     ],
   },
   {
-    category: "Investments",
+    category: "Assets",
     options: [
       {
         id: "brokerage",
         name: "Brokerage",
         icon: HiOutlineChartBar,
-        category: "credit",
+        category: "investment",
       },
       {
         id: "investments",
         name: "Investments",
         icon: FaLeaf,
-        category: "credit",
+        category: "investment",
       },
       {
         id: "insurance",
         name: "Insurance",
         icon: HiOutlineDocumentText,
-        category: "credit",
+        category: "investment",
       },
       {
         id: "retirement",
         name: "Retirement",
         icon: TbHorseToy,
-        category: "credit",
+        category: "investment",
       },
-      { id: "crypto", name: "Crypto", icon: FaBitcoin, category: "credit" },
+      { id: "crypto", name: "Crypto", icon: FaBitcoin, category: "investment" },
+      {
+        id: "property",
+        name: "Property",
+        icon: HiOutlineBuildingLibrary,
+        category: "investment",
+      },
+      {
+        id: "real-estate",
+        name: "Real Estate",
+        icon: HiOutlineDocumentText,
+        category: "investment",
+      },
+      {
+        id: "vehicle",
+        name: "Vehicle",
+        icon: FaLeaf,
+        category: "investment",
+      },
     ],
   },
 ];

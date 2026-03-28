@@ -5,8 +5,8 @@ import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
-import CategoryModal from "./CategoryModal";
-import SelectionModal from "./SelectionModal";
+import CategoryDropdown from "./CategoryDropdown";
+import AccountDropdown from "./AccountDropdown";
 import { incomeCategories } from "@/data/categories";
 import { Wallet } from "lucide-react";
 
@@ -34,8 +34,6 @@ export default function AddIncomeForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
@@ -210,70 +208,30 @@ export default function AddIncomeForm() {
 
               <div>
                 <Paragraph1 className="block mb-1">Category</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = categoryOptions.find(
-                        (c) => c.id === values.categoryId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Category
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <CategoryDropdown
+                  selected={
+                    categoryOptions.find((c) => c.id === values.categoryId) ||
+                    null
+                  }
+                  categories={categoryOptions}
+                  onSelect={(cat) => {
+                    setFieldValue("categoryId", cat.id);
+                  }}
+                />
               </div>
 
               <div>
                 <Paragraph1 className="block mb-1">Account</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsAccountModalOpen(true)}
-                  className="w-full border p-3 rounded-xl border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = accountOptions.find(
-                        (a) => a.id === values.accountId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select Account
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <AccountDropdown
+                  selected={
+                    accountOptions.find((a) => a.id === values.accountId) ||
+                    null
+                  }
+                  accounts={accountOptions}
+                  onSelect={(acc) => {
+                    setFieldValue("accountId", acc.id);
+                  }}
+                />
               </div>
 
               <div>
@@ -312,57 +270,6 @@ export default function AddIncomeForm() {
                 {loading ? "Saving..." : "Add Income"}
               </button>
             </Form>
-
-            <CategoryModal
-              isOpen={isCategoryModalOpen}
-              onClose={() => setIsCategoryModalOpen(false)}
-              allCategories={categoryOptions}
-              recentCategories={categoryOptions.slice(0, 6)}
-              onSelect={(cat) => {
-                setFieldValue("categoryId", cat.id);
-              }}
-              onCreateNew={async (name) => {
-                const { data: userData, error: userError } =
-                  await supabase.auth.getUser();
-                if (userError || !userData?.user) {
-                  console.error(userError);
-                  return;
-                }
-
-                const userId = userData.user.id;
-                const now = new Date().toISOString();
-
-                const { data, error } = await supabase
-                  .from("Category")
-                  .insert({
-                    user_id: userId,
-                    kind: "income",
-                    name,
-                    icon_key: name,
-                    updated_at: now,
-                  })
-                  .select("id, name")
-                  .single();
-
-                if (error || !data) {
-                  console.error(error);
-                  return;
-                }
-
-                await fetchCategories();
-                setFieldValue("categoryId", data.id);
-              }}
-            />
-
-            <SelectionModal
-              title="Select Account"
-              isOpen={isAccountModalOpen}
-              onClose={() => setIsAccountModalOpen(false)}
-              options={accountOptions}
-              onSelect={(option) => {
-                setFieldValue("accountId", option.id);
-              }}
-            />
           </>
         )}
       </Formik>

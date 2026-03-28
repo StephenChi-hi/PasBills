@@ -57,7 +57,7 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
                 w-full
                 h-dvh [100dvh]
                 sm:h-125 [500px]
-                sm:max-w-md
+                sm:w-[600px]
                 bg-white
                 rounded-none
                 sm:rounded-2xl
@@ -69,7 +69,7 @@ const AddEntryModal: React.FC<AddEntryModalProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header (sticky) */}
-              <div className="sticky top-0 z-10 bg-white border-gray-200 border-b px-4 py-3 flex items-center justify-between">
+              <div className="sticky top-0 z-10 bg-white rounded-2xl border-gray-200 border-b px-4 py-3 flex items-center justify-between">
                 <motion.button whileTap={{ scale: 0.9 }} onClick={onClose}>
                   <ArrowLeft className="w-5 h-5 text-gray-700" />
                 </motion.button>

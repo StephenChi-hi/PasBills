@@ -70,9 +70,7 @@ const CreditCard: React.FC = () => {
           <Paragraph1 className="text-lg font-black text-gray-900">
             Credit
           </Paragraph1>
-          <button className="hover:opacity-70 transition-opacity">
-            <Pencil className="w-4 h-4 text-blue-400" strokeWidth={2.5} />
-          </button>
+         
         </div>
 
         <button className="flex items-center group">

@@ -5,7 +5,10 @@ import { Formik, Form, Field } from "formik";
 import { supabase } from "@/util/supabase/client";
 import { Paragraph1 } from "@/common/ui/Text";
 import { format } from "date-fns";
-import SelectionModal from "./SelectionModal";
+import CategoryDropdown from "./CategoryDropdown";
+import AccountDropdown from "./AccountDropdown";
+import { expenseCategories } from "@/data/categories";
+import { getIconById } from "@/data/icons";
 import { Wallet } from "lucide-react";
 
 interface Account {
@@ -13,9 +16,16 @@ interface Account {
   name: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  icon_key?: string;
+}
+
 interface BillFormValues {
   name: string;
   amount: number;
+  categoryId: string;
   accountId: string;
   dueDate: string;
   frequency: string;
@@ -23,11 +33,12 @@ interface BillFormValues {
 
 const BillTab = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
+    fetchCategories();
   }, []);
 
   const fetchAccounts = async () => {
@@ -42,13 +53,123 @@ const BillTab = () => {
     if (!error && data) setAccounts(data as unknown as Account[]);
   };
 
+  const fetchCategories = async () => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      console.error(userError);
+      return;
+    }
+
+    const userId = userData.user.id;
+
+    let { data, error } = await supabase
+      .from("Category")
+      .select("id, name, icon_key")
+      .eq("kind", "expense")
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    let existing = (data ?? []) as Category[];
+
+    const existingNames = new Set(existing.map((c) => c.name.toLowerCase()));
+
+    const missingDefaults = expenseCategories.filter(
+      (def) => !existingNames.has(def.name.toLowerCase()),
+    );
+
+    if (missingDefaults.length > 0) {
+      const now = new Date().toISOString();
+
+      const iconIdMap: { [key: string]: string } = {
+        "Food & Drinks": "icon_3",
+        Groceries: "icon_2",
+        "Dining Out": "icon_4",
+        Shopping: "icon_2",
+        Transport: "icon_5",
+        Fuel: "icon_6",
+        "Housing / Rent": "icon_7",
+        "Home Utilities": "icon_8",
+        "Internet & Phone": "icon_9",
+        Subscriptions: "icon_10",
+        "Health & Medical": "icon_11",
+        "Gifts & Donations": "icon_12",
+        Education: "icon_13",
+        "Kids & Childcare": "icon_14",
+        "Personal Care & Beauty": "icon_15",
+        Entertainment: "icon_16",
+        "Movies & Shows": "icon_17",
+        Travel: "icon_18",
+        "Car Maintenance": "icon_19",
+        "Parking & Tolls": "icon_20",
+        Insurance: "icon_21",
+        "Credit Card Payment": "icon_22",
+        "Loan Repayment": "icon_22",
+        "Business Expenses": "icon_24",
+        "Office & Work": "icon_24",
+        Pets: "icon_26",
+        "Gym & Fitness": "icon_27",
+        "Streaming Services": "icon_17",
+        "Market & Foodstuff": "icon_2",
+        Miscellaneous: "icon_30",
+      };
+
+      const seedRows = missingDefaults.map((cat) => ({
+        user_id: userId,
+        kind: "expense",
+        name: cat.name,
+        icon_key: iconIdMap[cat.name] || "icon_30",
+        updated_at: now,
+      }));
+
+      const { error: seedError } = await supabase
+        .from("Category")
+        .insert(seedRows);
+
+      if (seedError) {
+        console.error(seedError);
+      } else {
+        const { data: refreshed, error: refreshError } = await supabase
+          .from("Category")
+          .select("id, name, icon_key")
+          .eq("kind", "expense")
+          .eq("user_id", userId);
+
+        if (!refreshError && refreshed) {
+          existing = refreshed as Category[];
+        }
+      }
+    }
+
+    setCategories(existing);
+  };
+
   const initialValues: BillFormValues = {
     name: "",
     amount: 0,
+    categoryId: "",
     accountId: "",
     dueDate: format(new Date(), "yyyy-MM-dd"),
     frequency: "monthly",
   };
+
+  const categoryOptions = useMemo(() => {
+    return categories.map((cat) => {
+      const iconId = cat.icon_key || "icon_30";
+      const iconOption = getIconById(iconId);
+      return {
+        id: cat.id,
+        name: cat.name,
+        icon: iconOption ? (
+          <iconOption.icon className="w-5 h-5 text-gray-700" />
+        ) : null,
+        color: iconOption?.color || "bg-gray-100",
+      };
+    });
+  }, [categories]);
 
   const accountOptions = useMemo(
     () =>
@@ -61,7 +182,7 @@ const BillTab = () => {
   );
 
   const handleSubmit = async (values: BillFormValues) => {
-    if (!values.name || !values.accountId)
+    if (!values.name || !values.accountId || !values.categoryId)
       return alert("Fill all required fields");
 
     setLoading(true);
@@ -73,6 +194,7 @@ const BillTab = () => {
         {
           user_id: userData.user.id,
           account_id: values.accountId,
+          category_id: values.categoryId,
           name: values.name,
           amount: values.amount,
           due_date: values.dueDate,
@@ -116,37 +238,32 @@ const BillTab = () => {
               </div>
 
               <div>
+                <Paragraph1 className="block mb-1">Category</Paragraph1>
+                <CategoryDropdown
+                  selected={
+                    categoryOptions.find((c) => c.id === values.categoryId) ||
+                    null
+                  }
+                  categories={categoryOptions}
+                  onSelect={(cat) => {
+                    setFieldValue("categoryId", cat.id);
+                  }}
+                />
+              </div>
+
+              <div>
                 <Paragraph1 className="block mb-1">Pay from account</Paragraph1>
-                <button
-                  type="button"
-                  onClick={() => setIsAccountModalOpen(true)}
-                  className="w-full border p-2 rounded-xl border-gray-200 text-sm flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const selected = accountOptions.find(
-                        (a) => a.id === values.accountId,
-                      );
-                      if (selected) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                              {selected.icon}
-                            </div>
-                            <Paragraph1 className="text-sm font-medium">
-                              {selected.name}
-                            </Paragraph1>
-                          </>
-                        );
-                      }
-                      return (
-                        <Paragraph1 className="text-sm text-gray-400">
-                          Select account
-                        </Paragraph1>
-                      );
-                    })()}
-                  </div>
-                </button>
+                <AccountDropdown
+                  selected={
+                    accountOptions.find((a) => a.id === values.accountId) ||
+                    null
+                  }
+                  accounts={accountOptions}
+                  placeholder="Select account"
+                  onSelect={(acc) => {
+                    setFieldValue("accountId", acc.id);
+                  }}
+                />
               </div>
 
               <div>
@@ -180,16 +297,6 @@ const BillTab = () => {
                 {loading ? "Saving..." : "Save Bill"}
               </button>
             </Form>
-
-            <SelectionModal
-              title="Select account"
-              isOpen={isAccountModalOpen}
-              onClose={() => setIsAccountModalOpen(false)}
-              options={accountOptions}
-              onSelect={(option) => {
-                setFieldValue("accountId", option.id);
-              }}
-            />
           </>
         )}
       </Formik>

@@ -28,7 +28,6 @@ const SelectAccountTypeModal: React.FC<SelectAccountTypeModalProps> = ({
         <div className="flex items-center px-4 py-3 border-b border-gray-200">
           <button onClick={onClose} className="flex items-center gap-1">
             <ChevronLeft className="w-5 h-5" />
-            <Paragraph1>Accounts</Paragraph1>
           </button>
           <Paragraph1 className="flex-1 text-center font-bold">
             Select Account Type
@@ -174,7 +173,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
           <div className="space-y-4">
             <input
               className="w-full border rounded-2xl border-gray-200 px-4 py-3"
-              placeholder="Account Name"
+              placeholder={`${selectedType?.name} name`}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
