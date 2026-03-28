@@ -135,7 +135,9 @@ const AccountEditModal: React.FC<AccountEditModalProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <Paragraph1 className="text-lg font-bold">Edit Account</Paragraph1>
+              <Paragraph1 className="text-lg font-bold">
+                Edit Account
+              </Paragraph1>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-gray-100 rounded-lg transition"
@@ -178,7 +180,9 @@ const AccountEditModal: React.FC<AccountEditModalProps> = ({
                 <input
                   type="number"
                   value={editBalance}
-                  onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)}
+                  onChange={(e) =>
+                    setEditBalance(parseFloat(e.target.value) || 0)
+                  }
                   className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />

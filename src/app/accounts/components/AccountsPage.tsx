@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Paragraph1 } from "@/common/ui/Text";
@@ -36,7 +36,8 @@ const AccountsPage: React.FC = () => {
   const fetchAccounts = async () => {
     setLoading(true);
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
       if (userError || !userData.user) return;
 
       const { data, error } = await supabase
@@ -76,11 +77,13 @@ const AccountsPage: React.FC = () => {
       acc[account.category].push(account);
       return acc;
     },
-    {} as Record<string, Account[]>
+    {} as Record<string, Account[]>,
   );
 
   const getTotalByCategory = (category: string) => {
-    return groupedAccounts[category]?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
+    return (
+      groupedAccounts[category]?.reduce((sum, acc) => sum + acc.balance, 0) || 0
+    );
   };
 
   const categoryDisplayNames: Record<string, string> = {
@@ -100,9 +103,8 @@ const AccountsPage: React.FC = () => {
       {/* --- Top Header --- */}
       <header className="flex items-center justify-between p-4 bg-white sticky top-0 z-10">
         <Menu className="w-6 h-6 text-blue-500" />
-              <h1 className="text-lg font-bold text-gray-900">Accounts</h1>
-              
-              
+        <h1 className="text-lg font-bold text-gray-900">Accounts</h1>
+
         <div className="flex gap-4">
           <SlidersHorizontal className="w-6 h-6 text-blue-500" />
           <Plus className="w-6 h-6 text-blue-500" />
@@ -130,7 +132,11 @@ const AccountsPage: React.FC = () => {
           </button>
         </div>
         <Paragraph1 className="text-3xl font-bold text-gray-900 mb-6">
-          ₦{Math.max(0, accounts.reduce((sum, acc) => sum + acc.balance, 0)).toLocaleString("en-NG", {
+          ₦
+          {Math.max(
+            0,
+            accounts.reduce((sum, acc) => sum + acc.balance, 0),
+          ).toLocaleString("en-NG", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}
@@ -160,51 +166,58 @@ const AccountsPage: React.FC = () => {
       <div className="flex-1 px-4 space-y-8 pb-10">
         {loading ? (
           <div className="flex justify-center items-center h-40">
-            <Paragraph1 className="text-gray-500">Loading accounts...</Paragraph1>
+            <Paragraph1 className="text-gray-500">
+              Loading accounts...
+            </Paragraph1>
           </div>
         ) : Object.keys(groupedAccounts).length === 0 ? (
           <div className="flex justify-center items-center h-40">
             <Paragraph1 className="text-gray-500">No accounts yet</Paragraph1>
           </div>
         ) : (
-          Object.entries(groupedAccounts).map(([category, categoryAccounts]) => (
-            <section key={category}>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <Paragraph1 className="text-lg font-black text-gray-900">
-                    {categoryDisplayNames[category] || category}
-                  </Paragraph1>
-                  <Pencil className="w-4 h-4 text-blue-400" />
-                </div>
-                <Paragraph1 className="text-lg font-black text-gray-900">
-                  ₦{getTotalByCategory(category).toLocaleString("en-NG", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  <span className="ml-1">›</span>
-                </Paragraph1>
-              </div>
-
-              <div className="space-y-6">
-                {categoryAccounts.map((account) => (
-                  <div
-                    key={account.id}
-                    onClick={() => handleAccountClick(account)}
-                  >
-                    <AccountItem
-                      name={account.name}
-                      type={account.type}
-                      balance={account.balance.toLocaleString("en-NG", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                      icon={categoryIcons[account.category] || categoryIcons.asset}
-                    />
+          Object.entries(groupedAccounts).map(
+            ([category, categoryAccounts]) => (
+              <section key={category}>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <Paragraph1 className="text-lg font-black text-gray-900">
+                      {categoryDisplayNames[category] || category}
+                    </Paragraph1>
+                    <Pencil className="w-4 h-4 text-blue-400" />
                   </div>
-                ))}
-              </div>
-            </section>
-          ))
+                  <Paragraph1 className="text-lg font-black text-gray-900">
+                    ₦
+                    {getTotalByCategory(category).toLocaleString("en-NG", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    <span className="ml-1">›</span>
+                  </Paragraph1>
+                </div>
+
+                <div className="space-y-6">
+                  {categoryAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      onClick={() => handleAccountClick(account)}
+                    >
+                      <AccountItem
+                        name={account.name}
+                        type={account.type}
+                        balance={account.balance.toLocaleString("en-NG", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        icon={
+                          categoryIcons[account.category] || categoryIcons.asset
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ),
+          )
         )}
       </div>
 
