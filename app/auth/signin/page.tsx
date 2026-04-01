@@ -161,7 +161,7 @@ export default function SignIn() {
             {/* Benefits */}
             <div className="space-y-4">
               <div className="flex gap-4 items-start">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-900/30 flex items-center justify-center">
                   <Eye className="h-5 w-5 text-green-400" />
                 </div>
                 <div>

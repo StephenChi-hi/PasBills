@@ -10,10 +10,10 @@ const publicRoutes = [
   "/auth/callback",
 ];
 
-export async function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for public routes and static assets
+  // Skip auth check for public routes and static assets
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
   }
@@ -44,12 +44,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // Protect all routes except:
+    "/((?!auth|_next/static|_next/image|favicon.ico|public).*)",
   ],
 };

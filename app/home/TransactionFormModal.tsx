@@ -4,10 +4,9 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
-import { incomeCategories } from "./constants/incomeCategories";
-import { expenseCategories } from "./constants/expenseCategories";
 import { accounts } from "./constants/accounts";
 import { businesses } from "./constants/businesses";
+import { CategorySelector } from "./CategorySelector";
 
 interface TransactionFormModalProps {
   type: "income" | "expense";
@@ -32,12 +31,14 @@ export function TransactionFormModal({
   const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
   const currencySymbol = currency?.symbol || "$";
 
-  const categories = type === "income" ? incomeCategories : expenseCategories;
-  const filteredCategories = categories.filter(
-    (cat) =>
-      cat.subcategory ===
-      (formData.businessId === "personal" ? "personal" : "business"),
-  );
+  const handleBusinessChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const businessId = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      businessId,
+      categoryId: "", // Reset category when business changes
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +122,7 @@ export function TransactionFormModal({
             <select
               name="businessId"
               value={formData.businessId}
-              onChange={handleChange}
+              onChange={handleBusinessChange}
               className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="personal">Personal</option>
@@ -133,25 +134,21 @@ export function TransactionFormModal({
             </select>
           </div>
 
-          {/* Category */}
+          {/* Category Selector */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
               Category
             </label>
-            <select
-              name="categoryId"
-              value={formData.categoryId}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">Select a category</option>
-              {filteredCategories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+            <CategorySelector
+              type={type}
+              categoryType={
+                formData.businessId === "personal" ? "personal" : "business"
+              }
+              selectedCategoryId={formData.categoryId}
+              onSelectCategory={(categoryId) =>
+                setFormData((prev) => ({ ...prev, categoryId }))
+              }
+            />
           </div>
 
           {/* From Account */}

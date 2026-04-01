@@ -8,6 +8,7 @@ import { getIncomeCategoryById } from "./constants/incomeCategories";
 import { getExpenseCategoryById } from "./constants/expenseCategories";
 import { getAccountName } from "./constants/accounts";
 import { getBusinessById } from "./constants/businesses";
+import { EditTransactionModal } from "./EditTransactionModal";
 
 export interface Transaction {
   id: string;
@@ -173,6 +174,9 @@ export function TransactionListCard({
   ],
 }: TransactionListCardProps) {
   const [displayCount, setDisplayCount] = useState(10);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
+  const [transactionsList, setTransactionsList] = useState(transactions);
   const { currentCurrency } = useCurrency();
   const ITEMS_PER_PAGE = 10;
 
@@ -200,8 +204,24 @@ export function TransactionListCard({
     setDisplayCount(10);
   };
 
-  const visibleTransactions = transactions.slice(0, displayCount);
-  const hasMore = transactions.length > displayCount;
+  const handleSaveTransaction = (updatedTransaction: Transaction) => {
+    setTransactionsList((prev) =>
+      prev.map((t) =>
+        t.id === updatedTransaction.id ? updatedTransaction : t,
+      ),
+    );
+    setSelectedTransaction(null);
+    console.log("Transaction updated:", updatedTransaction);
+  };
+
+  const handleDeleteTransaction = (transactionId: string) => {
+    setTransactionsList((prev) => prev.filter((t) => t.id !== transactionId));
+    setSelectedTransaction(null);
+    console.log("Transaction deleted:", transactionId);
+  };
+
+  const visibleTransactions = transactionsList.slice(0, displayCount);
+  const hasMore = transactionsList.length > displayCount;
   const showingMore = displayCount > 10;
 
   return (
@@ -230,7 +250,8 @@ export function TransactionListCard({
           return (
             <div
               key={transaction.id}
-              className="flex flex-col gap-2 rounded-md border p-3 transition-colors border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              onClick={() => setSelectedTransaction(transaction)}
+              className="flex flex-col gap-2 rounded-md border p-3 transition-colors border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
             >
               <div className="flex items-start justify-between">
                 {/* Left side: Icon and details */}
@@ -325,6 +346,16 @@ export function TransactionListCard({
             </button>
           )}
         </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {selectedTransaction && (
+        <EditTransactionModal
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          onSave={handleSaveTransaction}
+          onDelete={handleDeleteTransaction}
+        />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { CashFlowCard } from "./home/CashFlowCard";
 import { TransactionListCard } from "./home/TransactionListCard";
 import { AccountsCard } from "./home/AccountsCard";
 import { BusinessesCard } from "./home/BusinessesCard";
+import { LoansCard } from "./home/LoansCard";
 import { CashFlowDynamicsCard } from "./home/CashFlowDynamicsCard";
 import { CurrencySwitcher } from "./home/CurrencySwitcher";
 import { BottomNav } from "./home/BottomNav";
@@ -35,7 +36,7 @@ export default function Home() {
               Dashboard
             </h1>
             <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-              Welcome back,              Here's your financial overview.
+              Welcome back, Here's your financial overview.
             </p>
             <p className=" text-[12px] text-zinc-700 dark:text-zinc-500">
               {" "}
@@ -72,9 +73,13 @@ export default function Home() {
 
             {/* Businesses Card */}
             <BusinessesCard />
+
+            {/* Loans Card */}
           </div>
         </div>
-
+        <div className=" my-8">
+          <LoansCard />
+        </div>
         {/* Cash Flow Dynamics Card - Full Width */}
         <div className="mt-8">
           <CashFlowDynamicsCard />

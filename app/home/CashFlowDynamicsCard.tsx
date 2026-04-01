@@ -220,25 +220,7 @@ export function CashFlowDynamicsCard() {
         </div>
       </div>
 
-      {/* Summary Footer */}
-      <div className="grid grid-cols-2 gap-4 border-t border-zinc-200 dark:border-zinc-700 px-6 py-4 bg-zinc-50 dark:bg-zinc-800">
-        <div className="text-center">
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">
-            Total Income
-          </p>
-          <p className="text-lg font-bold text-green-600 dark:text-green-400">
-            {formatCurrency(calcPersonalIncome + calcBusinessIncome)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">
-            Total Expenses
-          </p>
-          <p className="text-lg font-bold text-red-600 dark:text-red-400">
-            {formatCurrency(calcPersonalExpenses + calcBusinessExpenses)}
-          </p>
-        </div>
-      </div>
+      
     </div>
   );
 }

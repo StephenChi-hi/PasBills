@@ -5,6 +5,8 @@ import { Plus } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { AddBusinessModal } from "./AddBusinessModal";
+import { EditBusinessModal } from "./EditBusinessModal";
+import { Transaction } from "./TransactionListCard";
 
 interface Business {
   id: string;
@@ -17,6 +19,7 @@ interface Business {
 
 interface BusinessesCardProps {
   businesses?: Business[];
+  transactions?: Transaction[];
 }
 
 export function BusinessesCard({
@@ -27,7 +30,7 @@ export function BusinessesCard({
       revenue: 45000,
       expenses: 28000,
       status: "profit",
-      
+
       description:
         "Web design, branding, and digital marketing services for small to medium businesses",
     },
@@ -58,9 +61,14 @@ export function BusinessesCard({
       description: "Online store selling handmade artisan products",
     },
   ],
+  transactions = [],
 }: BusinessesCardProps) {
   const [businessList, setBusinessList] = useState<Business[]>(businesses);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(
+    null,
+  );
+  const [transactionList, setTransactionList] = useState(transactions);
   const { currentCurrency } = useCurrency();
 
   const formatCurrency = (value: number) => {
@@ -79,6 +87,19 @@ export function BusinessesCard({
     return `${currency.symbol}${formatted}`;
   };
 
+  // Calculate revenue and expenses for a business from transactions
+  const calculateBusinessMetrics = (businessId: string) => {
+    const revenue = transactionList
+      .filter((t) => t.businessId === businessId && t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const expenses = transactionList
+      .filter((t) => t.businessId === businessId && t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return { revenue, expenses };
+  };
+
   const handleAddBusiness = (name: string, description: string) => {
     const newBusiness: Business = {
       id: `${Date.now()}`,
@@ -91,8 +112,30 @@ export function BusinessesCard({
     setBusinessList([...businessList, newBusiness]);
   };
 
-  const totalRevenue = businessList.reduce((sum, b) => sum + b.revenue, 0);
-  const totalExpenses = businessList.reduce((sum, b) => sum + b.expenses, 0);
+  const handleSaveBusiness = (updatedBusiness: Business) => {
+    setBusinessList((prev) =>
+      prev.map((b) => (b.id === updatedBusiness.id ? updatedBusiness : b)),
+    );
+    setSelectedBusiness(null);
+    console.log("Business updated:", updatedBusiness);
+  };
+
+  const handleDeleteBusiness = (businessId: string) => {
+    setBusinessList((prev) => prev.filter((b) => b.id !== businessId));
+    setSelectedBusiness(null);
+    console.log("Business deleted:", businessId);
+  };
+
+  const totalRevenue = businessList.reduce((sum, b) => {
+    const { revenue } = calculateBusinessMetrics(b.id);
+    return sum + revenue;
+  }, 0);
+
+  const totalExpenses = businessList.reduce((sum, b) => {
+    const { expenses } = calculateBusinessMetrics(b.id);
+    return sum + expenses;
+  }, 0);
+
   const totalProfit = totalRevenue - totalExpenses;
 
   return (
@@ -113,14 +156,17 @@ export function BusinessesCard({
 
         <div className="mt-6 space-y-4">
           {businessList.map((business) => {
-            const profit = business.revenue - business.expenses;
+            const { revenue, expenses } = calculateBusinessMetrics(business.id);
+            const profit = revenue - expenses;
             const isProfit = profit >= 0;
-            const margin = ((profit / business.revenue) * 100).toFixed(1);
+            const margin =
+              revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : "0";
 
             return (
               <div
                 key={business.id}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800"
+                onClick={() => setSelectedBusiness(business)}
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800 cursor-pointer transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -131,7 +177,6 @@ export function BusinessesCard({
                           {business.name}
                         </p>
                       </div>
-                    
                     </div>
                     {business.description && (
                       <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
@@ -145,13 +190,13 @@ export function BusinessesCard({
                   <div>
                     <p className="text-zinc-500 dark:text-zinc-400">Revenue</p>
                     <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatCurrency(business.revenue)}
+                      {formatCurrency(revenue)}
                     </p>
                   </div>
                   <div>
                     <p className="text-zinc-500 dark:text-zinc-400">Expenses</p>
                     <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatCurrency(business.expenses)}
+                      {formatCurrency(expenses)}
                     </p>
                   </div>
                 </div>
@@ -226,6 +271,19 @@ export function BusinessesCard({
         onClose={() => setIsAddModalOpen(false)}
         onAddBusiness={handleAddBusiness}
       />
+
+      {selectedBusiness && (
+        <EditBusinessModal
+          business={{
+            ...selectedBusiness,
+            revenue: calculateBusinessMetrics(selectedBusiness.id).revenue,
+            expenses: calculateBusinessMetrics(selectedBusiness.id).expenses,
+          }}
+          onClose={() => setSelectedBusiness(null)}
+          onSave={handleSaveBusiness}
+          onDelete={handleDeleteBusiness}
+        />
+      )}
     </>
   );
 }
