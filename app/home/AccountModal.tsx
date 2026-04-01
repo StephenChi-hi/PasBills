@@ -2,6 +2,8 @@
 
 import { X, Plus } from "lucide-react";
 import { useState } from "react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 
 export interface SubAccount {
   id: string;
@@ -31,6 +33,7 @@ export function AccountModal({
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountBalance, setNewAccountBalance] = useState("");
+  const { currentCurrency } = useCurrency();
 
   const handleAddAccount = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,18 +52,26 @@ export function AccountModal({
     purple:
       "bg-white-50 dark:bg-black -950 border-purple-200 dark:border-purple-800",
     orange:
-      "bg-white-50 dark:bg-black-950 border-orange-200 dark:border-orange-800",
+      "bg-white -5 0 dark:bg-black - 950 border-orange-200 dark:border-orange-800",
     red: "bg-white-50 dark:bg-black -950 border-red-200 dark:border-red-800",
   };
 
   if (!isOpen) return null;
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(2);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   return (

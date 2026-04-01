@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 import { AddBusinessModal } from "./AddBusinessModal";
 
 interface Business {
@@ -10,7 +12,6 @@ interface Business {
   revenue: number;
   expenses: number;
   status: "profit" | "loss";
-  growth?: number;
   description?: string;
 }
 
@@ -26,7 +27,7 @@ export function BusinessesCard({
       revenue: 45000,
       expenses: 28000,
       status: "profit",
-      growth: 12,
+      
       description:
         "Web design, branding, and digital marketing services for small to medium businesses",
     },
@@ -36,7 +37,6 @@ export function BusinessesCard({
       revenue: 32500,
       expenses: 18000,
       status: "profit",
-      growth: 25,
       description:
         "Cloud-based project management software with recurring subscription model",
     },
@@ -46,7 +46,6 @@ export function BusinessesCard({
       revenue: 22000,
       expenses: 8500,
       status: "profit",
-      growth: 8,
       description:
         "Business strategy and technology consulting for enterprise clients",
     },
@@ -56,20 +55,28 @@ export function BusinessesCard({
       revenue: 15000,
       expenses: 18000,
       status: "loss",
-      growth: -15,
       description: "Online store selling handmade artisan products",
     },
   ],
 }: BusinessesCardProps) {
   const [businessList, setBusinessList] = useState<Business[]>(businesses);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { currentCurrency } = useCurrency();
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(0);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
-    }).format(value);
+      maximumFractionDigits: 0,
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   const handleAddBusiness = (name: string, description: string) => {
@@ -80,7 +87,6 @@ export function BusinessesCard({
       revenue: 0,
       expenses: 0,
       status: "profit",
-      growth: 0,
     };
     setBusinessList([...businessList, newBusiness]);
   };
@@ -125,32 +131,7 @@ export function BusinessesCard({
                           {business.name}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <svg
-                          className={`h-4 w-4 ${
-                            isProfit
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          {isProfit ? (
-                            <path d="M2 11a1 1 0 011-1h2.293L7.586 6.707a1 1 0 011.414 0l1.293 1.293h2.293a1 1 0 110 2h-3.414l-1.293-1.293-1.293 1.293H3a1 1 0 01-1-1zm0-4a1 1 0 011-1h2.293L7.586 2.707a1 1 0 011.414 0l1.293 1.293h2.293a1 1 0 110-2h-3.414L7.586.707a1 1 0 00-1.414 0L4.879 2H3a1 1 0 00-1 1z" />
-                          ) : (
-                            <path d="M14.707 12.707a1 1 0 01-1.414 0L12 11.414l-1.293 1.293a1 1 0 01-1.414-1.414l1.293-1.293-1.293-1.293a1 1 0 111.414-1.414L12 8.586l1.293-1.293a1 1 0 111.414 1.414L13.414 10l1.293 1.293a1 1 0 010 1.414z" />
-                          )}
-                        </svg>
-                        <span
-                          className={`text-xs font-semibold ${
-                            isProfit
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
-                          }`}
-                        >
-                          {business.growth || 0}%
-                        </span>
-                      </div>
+                    
                     </div>
                     {business.description && (
                       <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">

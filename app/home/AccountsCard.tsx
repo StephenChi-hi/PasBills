@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 import { AccountModal, type SubAccount } from "./AccountModal";
 
 interface Account {
@@ -83,13 +85,22 @@ export function AccountsCard({
   );
   const [subAccounts, setSubAccounts] =
     useState<Record<string, SubAccount[]>>(mockSubAccounts);
+  const { currentCurrency } = useCurrency();
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(2);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);

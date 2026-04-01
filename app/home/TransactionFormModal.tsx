@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 import { incomeCategories } from "./constants/incomeCategories";
 import { expenseCategories } from "./constants/expenseCategories";
 import { accounts } from "./constants/accounts";
@@ -25,6 +27,10 @@ export function TransactionFormModal({
     businessId: "personal",
     date: new Date().toISOString().split("T")[0],
   });
+
+  const { currentCurrency } = useCurrency();
+  const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+  const currencySymbol = currency?.symbol || "$";
 
   const categories = type === "income" ? incomeCategories : expenseCategories;
   const filteredCategories = categories.filter(
@@ -92,7 +98,7 @@ export function TransactionFormModal({
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Amount ($)
+              Amount ({currencySymbol})
             </label>
             <input
               type="number"

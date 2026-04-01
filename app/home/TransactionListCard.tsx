@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import * as Icons from "lucide-react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 import { getIncomeCategoryById } from "./constants/incomeCategories";
 import { getExpenseCategoryById } from "./constants/expenseCategories";
 import { getAccountName } from "./constants/accounts";
@@ -171,14 +173,23 @@ export function TransactionListCard({
   ],
 }: TransactionListCardProps) {
   const [displayCount, setDisplayCount] = useState(10);
+  const { currentCurrency } = useCurrency();
   const ITEMS_PER_PAGE = 10;
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(2);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   const toggleViewMore = () => {
@@ -252,7 +263,7 @@ export function TransactionListCard({
                         </span>
                       )}
                     </div>
-                    <div className="space-y-1 flex sm:flex-row gap-4">
+                    <div className="space-y-1 flex flex-col sm:flex-row sm:gap-4">
                       {/* Category & Business info */}
                       <p className="text-xs">
                         <span>{category?.name}</span>

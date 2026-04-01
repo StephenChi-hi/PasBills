@@ -1,5 +1,8 @@
 "use client";
 
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
+
 interface BalanceCardProps {
   liquidBalance?: number;
   netWorth?: number;
@@ -9,12 +12,22 @@ export function BalanceCard({
   liquidBalance = 24500.5,
   netWorth = 156230.75,
 }: BalanceCardProps) {
+  const { currentCurrency } = useCurrency();
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(2);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-    }).format(value);
+      maximumFractionDigits: 2,
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   return (
@@ -42,9 +55,9 @@ export function BalanceCard({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Net Worth: <span className=" font-bold"> {formatCurrency(netWorth)}</span>
+              Net Worth:{" "}
+              <span className=" font-bold"> {formatCurrency(netWorth)}</span>
             </p>
-           
           </div>
         </div>
       </div>

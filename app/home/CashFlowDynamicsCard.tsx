@@ -1,6 +1,8 @@
 "use client";
 
 import * as Icons from "lucide-react";
+import { useCurrency } from "@/lib/currency/currency-context";
+import { CURRENCIES } from "@/lib/currency/currencies";
 import { incomeCategories } from "./constants/incomeCategories";
 import { expenseCategories } from "./constants/expenseCategories";
 
@@ -52,13 +54,22 @@ const categoryAmounts = {
 };
 
 export function CashFlowDynamicsCard() {
+  const { currentCurrency } = useCurrency();
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+    if (!currency) return value.toFixed(0);
+
+    // Convert from USD to selected currency
+    const usdToSelectedRate = currency.rateToUSD;
+    const convertedValue = value * usdToSelectedRate;
+
+    const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(value);
+    }).format(convertedValue);
+
+    return `${currency.symbol}${formatted}`;
   };
 
   // Get personal and business income
