@@ -96,8 +96,9 @@ export default function Home() {
         {/* Currency Switcher */}
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <CurrencySwitcher />
-          <ResetDataButton />
+
           <DownloadTransactionsButton />
+          <ResetDataButton />
         </div>
       </main>
 
