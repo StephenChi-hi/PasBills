@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
+import { createClient } from "@/lib/supabase/client";
 import { AccountModal, type SubAccount } from "./AccountModal";
 
 interface Account {
@@ -11,6 +13,7 @@ interface Account {
   balance: number;
   type: string;
   color?: string;
+  currency?: string;
 }
 
 interface AccountsCardProps {
@@ -39,61 +42,111 @@ const mockSubAccounts: Record<string, SubAccount[]> = {
     { id: "inv-3", name: "ETF Index", balance: 10000 },
   ],
   "5": [{ id: "cash-1", name: "Wallet", balance: 2500 }],
+  "6": [
+    { id: "crypto-1", name: "Bitcoin Wallet", balance: 12000 },
+    { id: "crypto-2", name: "Ethereum Wallet", balance: 8000 },
+    { id: "crypto-3", name: "Altcoins", balance: 3000 },
+  ],
 };
 
-export function AccountsCard({
-  accounts = [
-    {
-      id: "5",
-      name: "Cash",
-      balance: 2500,
-      type: "Cash",
-      color: "red",
-    },
-    {
-      id: "1",
-      name: "Primary Checking",
-      balance: 12500.25,
-      type: "Checking",
-      color: "blue",
-    },
-    {
-      id: "2",
-      name: "Savings Account",
-      balance: 45000.75,
-      type: "Savings",
-      color: "green",
-    },
-    {
-      id: "3",
-      name: "Business Account",
-      balance: 78230.5,
-      type: "Business",
-      color: "purple",
-    },
-    {
-      id: "4",
-      name: "Investment Account",
-      balance: 65000,
-      type: "Investment",
-      color: "orange",
-    },
-  ],
-}: AccountsCardProps) {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+export function AccountsCard({ accounts = [] }: AccountsCardProps) {
+  const [selectedAccountType, setSelectedAccountType] = useState<string | null>(
     null,
   );
-  const [subAccounts, setSubAccounts] =
-    useState<Record<string, SubAccount[]>>(mockSubAccounts);
+  const [accountsList, setAccountsList] = useState<Account[]>([]);
+  const [userId, setUserId] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
   const { currentCurrency } = useCurrency();
+  const { refetchTrigger } = useTransactionStore();
 
-  const formatCurrency = (value: number) => {
+  const accountTypes = [
+    { key: "cash", label: "Cash", color: "red" },
+    { key: "checking", label: "Checking", color: "blue" },
+    { key: "savings", label: "Savings", color: "green" },
+    { key: "business", label: "Business", color: "purple" },
+    { key: "investment", label: "Investment", color: "orange" },
+    { key: "crypto", label: "Crypto", color: "teal" },
+  ];
+
+  useEffect(() => {
+    const getUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      if (!userId) return;
+
+      try {
+        setIsLoading(true);
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("accounts")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching accounts:", error);
+          return;
+        }
+
+        const formattedAccounts: Account[] = (data || []).map((acc: any) => ({
+          id: acc.id,
+          name: acc.name,
+          balance: acc.balance,
+          type: acc.type.charAt(0).toUpperCase() + acc.type.slice(1),
+          color: acc.type,
+          currency: acc.currency,
+        }));
+
+        setAccountsList(formattedAccounts);
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAccounts();
+  }, [userId, refetchTrigger]);
+
+  const formatCurrency = (value: number, storedCurrency?: string) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
     if (!currency) return value.toFixed(2);
 
+    // If no stored currency or stored currency matches current, just format without conversion
+    if (!storedCurrency || storedCurrency === currentCurrency) {
+      const formatted = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+      return `${currency.symbol}${formatted}`;
+    }
+
+    // Convert from stored currency to USD, then to selected currency
+    const storedCurrencyObj =
+      CURRENCIES[storedCurrency as keyof typeof CURRENCIES];
+    if (!storedCurrencyObj) {
+      // If we can't find the stored currency, assume it was USD
+      const convertedValue = value * currency.rateToUSD;
+      const formatted = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(convertedValue);
+      return `${currency.symbol}${formatted}`;
+    }
+
+    // Convert from stored currency to USD
+    const valueInUSD = value / storedCurrencyObj.rateToUSD;
     // Convert from USD to selected currency
-    const usdToSelectedRate = currency.rateToUSD;
-    const convertedValue = value * usdToSelectedRate;
+    const convertedValue = valueInUSD * currency.rateToUSD;
 
     const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -103,7 +156,25 @@ export function AccountsCard({
     return `${currency.symbol}${formatted}`;
   };
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+  const totalBalance = accountsList.reduce((sum, acc) => sum + acc.balance, 0);
+
+  // Group accounts by type and calculate totals
+  const accountsByType = accountTypes.reduce(
+    (acc, typeObj) => {
+      acc[typeObj.key] = accountsList.filter(
+        (account) => account.type.toLowerCase() === typeObj.key,
+      );
+      return acc;
+    },
+    {} as Record<string, Account[]>,
+  );
+
+  const getTypeBalance = (type: string) => {
+    return (accountsByType[type] || []).reduce(
+      (sum, acc) => sum + acc.balance,
+      0,
+    );
+  };
 
   const colorClasses: Record<string, string> = {
     blue: "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400",
@@ -113,6 +184,16 @@ export function AccountsCard({
     orange:
       "bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400",
     red: "bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400",
+    teal: "bg-teal-100 dark:bg-teal-900 text-teal-600 dark:text-teal-400",
+    cash: "bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400",
+    checking: "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400",
+    savings:
+      "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400",
+    business:
+      "bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400",
+    investment:
+      "bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400",
+    crypto: "bg-teal-100 dark:bg-teal-900 text-teal-600 dark:text-teal-400",
   };
 
   const barColorMap: Record<string, string> = {
@@ -121,30 +202,87 @@ export function AccountsCard({
     purple: "from-purple-300 to-purple-600",
     orange: "from-orange-300 to-orange-600",
     red: "from-red-300 to-red-600",
+    teal: "from-teal-300 to-teal-600",
+    cash: "from-red-300 to-red-600",
+    checking: "from-blue-300 to-blue-600",
+    savings: "from-green-300 to-green-600",
+    business: "from-purple-300 to-purple-600",
+    investment: "from-orange-300 to-orange-600",
+    crypto: "from-teal-300 to-teal-600",
   };
 
-  const handleAddAccount = (name: string, balance: number) => {
-    const account = accounts.find((a) => a.id === selectedAccountId);
-    if (account && selectedAccountId) {
-      const newSubAccount: SubAccount = {
-        id: `${selectedAccountId}-${Date.now()}`,
-        name,
-        balance,
-      };
-      setSubAccounts((prev) => ({
-        ...prev,
-        [selectedAccountId]: [
-          ...(prev[selectedAccountId] || []),
-          newSubAccount,
-        ],
+  const handleAddAccount = async (
+    name: string,
+    balance: number,
+    type: string,
+  ) => {
+    // Refetch accounts to get the newly added account with real UUID from database
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching accounts:", error);
+        return;
+      }
+
+      const formattedAccounts: Account[] = (data || []).map((acc: any) => ({
+        id: acc.id,
+        name: acc.name,
+        balance: acc.balance,
+        type: acc.type.charAt(0).toUpperCase() + acc.type.slice(1),
+        color: acc.type,
+        currency: acc.currency,
       }));
+
+      setAccountsList(formattedAccounts);
+    } catch (error) {
+      console.error("Error:", error);
     }
   };
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
-  const selectedSubAccounts = selectedAccountId
-    ? subAccounts[selectedAccountId] || []
+  const handleUpdateAccount = async (accountId: string, newName: string) => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("accounts")
+        .update({ name: newName })
+        .eq("id", accountId)
+        .eq("user_id", userId);
+
+      if (error) {
+        console.error("Error updating account:", error);
+        return false;
+      }
+
+      // Update local state
+      setAccountsList((prev) =>
+        prev.map((acc) =>
+          acc.id === accountId ? { ...acc, name: newName } : acc,
+        ),
+      );
+      return true;
+    } catch (error) {
+      console.error("Error:", error);
+      return false;
+    }
+  };
+
+  // Get accounts for the selected type
+  const typeAccounts = selectedAccountType
+    ? accountsByType[selectedAccountType] || []
     : [];
+  const typeLabel =
+    accountTypes.find((t) => t.key === selectedAccountType)?.label || "";
+  const typeColor =
+    accountTypes.find((t) => t.key === selectedAccountType)?.color || "blue";
+  const typeBalance = selectedAccountType
+    ? getTypeBalance(selectedAccountType)
+    : 0;
 
   return (
     <>
@@ -153,49 +291,61 @@ export function AccountsCard({
           Your Accounts
         </h3>
 
-        <div className="mt-6 space-y-3">
-          {accounts.map((account) => {
-            const colorClass = colorClasses[account.color || "blue"];
-            const percentage = (account.balance / totalBalance) * 100;
-            const barGradient = barColorMap[account.color || "blue"];
+        {isLoading ? (
+          <p className="mt-6 text-center text-sm text-zinc-500">
+            Loading accounts...
+          </p>
+        ) : (
+          <div className="mt-6 space-y-3">
+            {accountTypes.map(({ key, label, color }) => {
+              const typeBalance = getTypeBalance(key);
+              const colorClass = colorClasses[color];
+              const barGradient = barColorMap[color];
+              const percentage =
+                totalBalance > 0 ? (typeBalance / totalBalance) * 100 : 0;
 
-            return (
-              <div
-                key={account.id}
-                onClick={() => setSelectedAccountId(account.id)}
-                className="space-y-1 cursor-pointer rounded-lg transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 p-2"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`rounded-full p-2 ${colorClass}`}>
-                      <div className="h-3 w-3 rounded-full bg-current" />
+              return (
+                <div
+                  key={key}
+                  onClick={() => setSelectedAccountType(key)}
+                  className="space-y-1 cursor-pointer rounded-lg transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 p-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`rounded-full p-2 ${colorClass}`}>
+                        <div className="h-3 w-3 rounded-full bg-current" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                          {label}
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {(accountsByType[key] || []).length} account
+                          {(accountsByType[key] || []).length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {account.name}
-                      </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {account.type}
-                      </p>
-                    </div>
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {formatCurrency(
+                        typeBalance,
+                        accountsByType[key]?.[0]?.currency,
+                      )}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {formatCurrency(account.balance)}
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                    <div
+                      className={`bg-gradient-to-r ${barGradient} h-full rounded-full transition-all`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
+                    {percentage.toFixed(1)}% of total
                   </p>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <div
-                    className={`bg-gradient-to-r ${barGradient} h-full rounded-full transition-all`}
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-                  {percentage.toFixed(1)}% of total
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-4 border-t border-zinc-200 dark:border-zinc-700 pt-4">
           <div className="flex items-center justify-between">
@@ -203,21 +353,29 @@ export function AccountsCard({
               Total Balance
             </p>
             <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              {formatCurrency(totalBalance)}
+              {formatCurrency(totalBalance, currentCurrency)}
             </p>
           </div>
         </div>
       </div>
 
-      {selectedAccount && (
+      {selectedAccountType && (
         <AccountModal
-          isOpen={selectedAccountId !== null}
-          accountName={selectedAccount.name}
-          accountColor={selectedAccount.color || "blue"}
-          subAccounts={selectedSubAccounts}
-          totalBalance={selectedAccount.balance}
-          onClose={() => setSelectedAccountId(null)}
+          isOpen={selectedAccountType !== null}
+          accountName={typeLabel}
+          accountColor={typeColor}
+          accountType={selectedAccountType}
+          subAccounts={typeAccounts.map((acc) => ({
+            id: acc.id,
+            name: acc.name,
+            balance: acc.balance,
+            currency: acc.currency,
+          }))}
+          totalBalance={typeBalance}
+          userId={userId}
+          onClose={() => setSelectedAccountType(null)}
           onAddAccount={handleAddAccount}
+          onUpdateAccount={handleUpdateAccount}
         />
       )}
     </>

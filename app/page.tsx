@@ -6,12 +6,13 @@ import { TransactionListCard } from "./home/TransactionListCard";
 import { AccountsCard } from "./home/AccountsCard";
 import { BusinessesCard } from "./home/BusinessesCard";
 import { LoansCard } from "./home/LoansCard";
+import { TangibleAssetsCard } from "./home/TangibleAssetsCard";
 import { CashFlowDynamicsCard } from "./home/CashFlowDynamicsCard";
 import { CurrencySwitcher } from "./home/CurrencySwitcher";
 import { BottomNav } from "./home/BottomNav";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { HandCoins, LogOut } from "lucide-react";
 
 export default function Home() {
   const { user, signOut } = useAuth();
@@ -57,10 +58,10 @@ export default function Home() {
           {/* Left Column - Takes 2 columns on large screens */}
           <div className="space-y-6 lg:col-span-2">
             {/* Balance Card */}
-            <BalanceCard liquidBalance={24500.5} netWorth={156230.75} />
+            <BalanceCard liquidBalance={0} netWorth={0} />
 
             {/* Cash Flow Card */}
-            <CashFlowCard inflow={8500.75} outflow={3200.25} />
+            <CashFlowCard inflow={0} outflow={0} />
 
             {/* Transaction List Card */}
             <TransactionListCard />
@@ -79,6 +80,11 @@ export default function Home() {
         </div>
         <div className=" my-8">
           <LoansCard />
+        </div>
+
+        {/* Tangible Assets Card */}
+        <div className="my-8">
+          <TangibleAssetsCard />
         </div>
         {/* Cash Flow Dynamics Card - Full Width */}
         <div className="mt-8">

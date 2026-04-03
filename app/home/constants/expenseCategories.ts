@@ -68,6 +68,12 @@ export const expenseCategories: ExpenseCategory[] = [
     subcategory: "personal",
   },
   {
+    id: "personal_charity",
+    name: "Charity",
+    iconName: "Heart",
+    subcategory: "personal",
+  },
+  {
     id: "personal_other",
     name: "Other Personal",
     iconName: "CreditCard",
@@ -127,6 +133,12 @@ export const expenseCategories: ExpenseCategory[] = [
     id: "business_professional",
     name: "Professional Services",
     iconName: "Briefcase",
+    subcategory: "business",
+  },
+  {
+    id: "business_community_service",
+    name: "Community Service",
+    iconName: "Users",
     subcategory: "business",
   },
   {

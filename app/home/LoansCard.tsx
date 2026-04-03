@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { AddLoanModal } from "./AddLoanModal";
 import { EditLoanModal } from "./EditLoanModal";
+import { useAuth } from "@/lib/auth/auth-context";
+import { getUserLoans } from "@/lib/supabase/loans";
 
 interface Loan {
   id: string;
@@ -20,10 +22,10 @@ interface Loan {
   totalPaid: number;
   currency: string;
   description?: string;
-  account: string; // Account ID involved
+  account: string; // Account name
+  accountId: string; // Account ID involved
   transactionType: "personal" | "business"; // Personal or Business
   businessId?: string; // If business type
-  category: string; // Category ID
 }
 
 interface LoansCardProps {
@@ -31,59 +33,74 @@ interface LoansCardProps {
 }
 
 export function LoansCard({ loans = [] }: LoansCardProps) {
-  // Demo loans for preview
-  const demoLoans: Loan[] = [
-    {
-      id: "demo-1",
-      loanType: "borrowed",
-      counterpartyName: "Sarah Johnson",
-      amount: 1500,
-      principalAmount: 1500,
-      interestRate: 5,
-      status: "active",
-      borrowedDate: "2026-02-15",
-      dueDate: "2026-06-15",
-      totalPaid: 600,
-      currency: "USD",
-      description: "Car repair help",
-      account: "Checking",
-      transactionType: "personal",
-      category: "personal-loan",
-    },
-    {
-      id: "demo-2",
-      loanType: "lent",
-      counterpartyName: "Tech Startup Inc",
-      amount: 5000,
-      principalAmount: 5000,
-      interestRate: 8,
-      status: "active",
-      borrowedDate: "2026-01-10",
-      dueDate: "2026-12-10",
-      totalPaid: 1250,
-      currency: "USD",
-      description: "Business venture fund",
-      account: "Business",
-      transactionType: "business",
-      businessId: "startup-xyz",
-      category: "business-loan",
-    },
-    
-  ];
-
   const [loanList, setLoanList] = useState<Loan[]>(
-    loans.length > 0 ? loans : demoLoans,
+    loans.length > 0 ? loans : [],
   );
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const { currentCurrency } = useCurrency();
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(!user);
+
+  // Load active loans from database
+  useEffect(() => {
+    async function loadLoans() {
+      if (!user) return;
+
+      try {
+        setIsLoading(true);
+        const data = await getUserLoans(user.id);
+        if (data && data.length > 0) {
+          // Filter to only show active loans (not settled or defaulted)
+          const activeLoans = data.filter(
+            (loan: any) => loan.status === "active",
+          );
+
+          if (activeLoans.length > 0) {
+            // Transform database loans to component format
+            const transformedLoans = activeLoans.map((loan: any) => ({
+              ...loan,
+              loanType: loan.loan_type,
+              counterpartyName: loan.counterparty_name,
+              principalAmount: loan.principal_amount,
+              interestRate: loan.interest_rate,
+              borrowedDate: loan.borrowed_date,
+              dueDate: loan.due_date,
+              totalPaid: loan.amount_paid,
+              transactionType: loan.transaction_type,
+              businessId: loan.business_id,
+              account: "Account", // TODO: Fetch account name from accounts table
+              accountId: loan.account_id,
+              amount: loan.total_amount_due,
+            }));
+            setLoanList(transformedLoans);
+          } else {
+            setLoanList([]);
+          }
+        } else {
+          setLoanList([]);
+        }
+      } catch (error) {
+        console.error("Error loading loans:", error);
+        setLoanList([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadLoans();
+  }, [user]);
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
     if (!currency) return value.toFixed(0);
 
-    const usdToSelectedRate = currency.rateToUSD;
-    const convertedValue = value * usdToSelectedRate;
+    // Database stores amounts in NGN, convert to selected currency
+    // NGN → USD: divide by NGN rate
+    // USD → selected currency: multiply by currency rate
+    const ngnRate = CURRENCIES.NGN.rateToUSD; // 1550
+    const valueInUSD = value / ngnRate;
+    const convertedValue = valueInUSD * currency.rateToUSD;
 
     const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
@@ -181,7 +198,7 @@ export function LoansCard({ loans = [] }: LoansCardProps) {
                             {loan.counterpartyName}
                           </p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {loan.category} • {loan.transactionType}
+                            {loan.transactionType}
                           </p>
                         </div>
                         <div className="text-right">
@@ -245,7 +262,7 @@ export function LoansCard({ loans = [] }: LoansCardProps) {
                             {loan.counterpartyName}
                           </p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {loan.category} • {loan.transactionType}
+                            {loan.transactionType}
                           </p>
                         </div>
                         <div className="text-right">
@@ -280,7 +297,9 @@ export function LoansCard({ loans = [] }: LoansCardProps) {
         {loanList.length === 0 && (
           <div className="text-center py-8">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              No loans yet. Add one to get started!
+              {isLoading
+                ? "Loading loans..."
+                : "No active loans. Add one to get started!"}
             </p>
           </div>
         )}

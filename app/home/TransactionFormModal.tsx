@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
-import { accounts } from "./constants/accounts";
-import { businesses } from "./constants/businesses";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { CategorySelector } from "./CategorySelector";
+import { createClient } from "@/lib/supabase/client";
+
+interface Account {
+  id: string;
+  name: string;
+}
+
+interface Business {
+  id: string;
+  name: string;
+}
 
 interface TransactionFormModalProps {
   type: "income" | "expense";
@@ -21,15 +31,66 @@ export function TransactionFormModal({
     description: "",
     amount: 0,
     categoryId: "",
-    fromAccount: accounts[0].id,
-    toAccount: accounts[1].id,
+    fromAccount: null,
+    toAccount: null,
     businessId: "personal",
     date: new Date().toISOString().split("T")[0],
+    tangibleAssets: false,
   });
 
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const { currentCurrency } = useCurrency();
+  const { triggerRefetch } = useTransactionStore();
   const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
   const currencySymbol = currency?.symbol || "$";
+
+  // Fetch accounts and businesses from database
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch accounts
+        const { data: accountsData, error: accountsError } = await supabase
+          .from("accounts")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        // Fetch businesses
+        const { data: businessesData, error: businessesError } = await supabase
+          .from("businesses")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        if (!accountsError && accountsData) {
+          setAccounts(accountsData);
+        }
+        if (!businessesError && businessesData) {
+          setBusinesses(businessesData);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleBusinessChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const businessId = e.target.value;
@@ -40,14 +101,79 @@ export function TransactionFormModal({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would send the transaction to your backend
-    console.log("Transaction submitted:", {
-      ...formData,
-      type,
-    });
-    onClose();
+    setSubmitting(true);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error("User not authenticated");
+        setSubmitting(false);
+        return;
+      }
+
+      // Convert amount from current currency to NGN
+      let amountInNGN = formData.amount;
+      if (currentCurrency !== "NGN") {
+        const ngnRate = CURRENCIES.NGN.rateToUSD; // 1 USD = 1550 NGN
+        const valueInUSD = formData.amount / currency.rateToUSD;
+        amountInNGN = valueInUSD * ngnRate;
+      }
+
+      // Determine if business transaction
+      const isBusiness = formData.businessId !== "personal";
+
+      const { error } = await supabase.from("transactions").insert([
+        {
+          user_id: user.id,
+          type: type,
+          description: formData.description,
+          amount: amountInNGN,
+          category_id: formData.categoryId || null,
+          from_account_id: formData.fromAccount || null,
+          to_account_id: formData.toAccount || null,
+          business_id: isBusiness ? formData.businessId : null,
+          is_business: isBusiness,
+          tangible_assets: formData.tangibleAssets,
+          transaction_date: formData.date,
+        },
+      ]);
+
+      if (error) {
+        console.error("Error creating transaction:", error);
+        return;
+      }
+
+      // Trigger refetch in all cards
+      console.log("✅ Transaction created successfully, triggering refetch...");
+      // Wait a moment for database triggers to execute before refetching
+      setTimeout(() => {
+        console.log("⏰ Calling triggerRefetch after delay");
+        triggerRefetch();
+      }, 300);
+
+      // Reset form and close
+      setFormData({
+        description: "",
+        amount: 0,
+        categoryId: "",
+        fromAccount: null,
+        toAccount: null,
+        businessId: "personal",
+        date: new Date().toISOString().split("T")[0],
+        tangibleAssets: false,
+      });
+      onClose();
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -55,10 +181,15 @@ export function TransactionFormModal({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target as any;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "amount" ? parseFloat(value) || 0 : value,
+      [name]:
+        type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : name === "amount"
+            ? parseFloat(value) || 0
+            : value,
     }));
   };
 
@@ -124,6 +255,7 @@ export function TransactionFormModal({
               value={formData.businessId}
               onChange={handleBusinessChange}
               className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
             >
               <option value="personal">Personal</option>
               {businesses.map((bus) => (
@@ -151,6 +283,24 @@ export function TransactionFormModal({
             />
           </div>
 
+          {/* Tangible Assets Checkbox */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="tangibleAssets"
+              name="tangibleAssets"
+              checked={formData.tangibleAssets}
+              onChange={handleChange}
+              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            />
+            <label
+              htmlFor="tangibleAssets"
+              className="text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer"
+            >
+              Tangible Assets
+            </label>
+          </div>
+
           {/* From Account */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -158,10 +308,12 @@ export function TransactionFormModal({
             </label>
             <select
               name="fromAccount"
-              value={formData.fromAccount}
+              value={formData.fromAccount || ""}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
             >
+              <option value="">Select an account</option>
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.name}
@@ -177,10 +329,12 @@ export function TransactionFormModal({
             </label>
             <select
               name="toAccount"
-              value={formData.toAccount}
+              value={formData.toAccount || ""}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
             >
+              <option value="">Select an account</option>
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.name}
@@ -214,13 +368,18 @@ export function TransactionFormModal({
             </button>
             <button
               type="submit"
+              disabled={submitting || loading}
               className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors ${
                 type === "income"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
+                  ? "bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+                  : "bg-red-600 hover:bg-red-700 disabled:bg-red-400"
               }`}
             >
-              {type === "income" ? "Record Income" : "Record Expense"}
+              {submitting
+                ? "Saving..."
+                : type === "income"
+                  ? "Record Income"
+                  : "Record Expense"}
             </button>
           </div>
         </form>

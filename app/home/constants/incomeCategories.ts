@@ -38,6 +38,12 @@ export const incomeCategories: IncomeCategory[] = [
     subcategory: "personal",
   },
   {
+    id: "personal_gifts",
+    name: "Gifts",
+    iconName: "Gift",
+    subcategory: "personal",
+  },
+  {
     id: "personal_other",
     name: "Other Income",
     iconName: "DollarSign",
@@ -73,6 +79,12 @@ export const incomeCategories: IncomeCategory[] = [
     id: "business_subscription",
     name: "Subscription Revenue",
     iconName: "Infinity",
+    subcategory: "business",
+  },
+  {
+    id: "business_gifts",
+    name: "Gifts",
+    iconName: "Gift",
     subcategory: "business",
   },
   {

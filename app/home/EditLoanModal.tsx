@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Trash2, Plus } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
+import {
+  recordLoanPayment,
+  getLoanPayments,
+  convertToNGN,
+} from "@/lib/supabase/loans";
+import { createClient } from "@/lib/supabase/client";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
 
 interface Loan {
   id: string;
@@ -19,16 +26,16 @@ interface Loan {
   currency: string;
   description?: string;
   account: string;
+  accountId: string;
   transactionType: "personal" | "business";
   businessId?: string;
-  category: string;
 }
 
 interface Payment {
   id: string;
   amount: number;
-  date: string;
-  notes?: string;
+  transaction_date: string;
+  description?: string;
 }
 
 interface EditLoanModalProps {
@@ -51,7 +58,25 @@ export function EditLoanModal({
   );
   const [paymentNotes, setPaymentNotes] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { currentCurrency } = useCurrency();
+  const { triggerRefetch } = useTransactionStore();
+
+  // Load payments from database
+  useEffect(() => {
+    async function loadPayments() {
+      try {
+        const data = await getLoanPayments(loan.id);
+        if (data) {
+          setPayments(data as Payment[]);
+        }
+      } catch (error) {
+        console.error("Error loading payments:", error);
+      }
+    }
+
+    loadPayments();
+  }, [loan.id]);
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -72,7 +97,7 @@ export function EditLoanModal({
   const progressPercent = (loan.totalPaid / loan.principalAmount) * 100;
   const isSettled = remainingAmount <= 0;
 
-  const handleAddPayment = () => {
+  const handleAddPayment = async () => {
     if (!paymentAmount || isNaN(parseFloat(paymentAmount))) {
       alert("Enter a valid payment amount");
       return;
@@ -86,42 +111,75 @@ export function EditLoanModal({
       return;
     }
 
-    const newPayment: Payment = {
-      id: `${Date.now()}`,
-      amount,
-      date: paymentDate,
-      notes: paymentNotes || undefined,
-    };
+    const supabase = createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
 
-    setPayments([...payments, newPayment]);
+    if (!authUser) {
+      alert("You must be logged in to record a payment");
+      return;
+    }
 
-    // Update loan total paid
-    const updatedLoan: Loan = {
-      ...loan,
-      totalPaid: loan.totalPaid + amount,
-      status:
-        loan.totalPaid + amount >= loan.principalAmount ? "settled" : "active",
-    };
-    onSave(updatedLoan);
+    try {
+      setIsLoading(true);
 
-    // Reset form
-    setPaymentAmount("");
-    setPaymentDate(new Date().toISOString().split("T")[0]);
-    setPaymentNotes("");
+      // Get user's currency object and convert to NGN
+      const userCurrency =
+        CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
+      if (!userCurrency) {
+        alert("Invalid currency selected");
+        return;
+      }
+      const amountNGN = convertToNGN(amount, userCurrency);
+
+      // Record payment in database (creates transaction linked to loan) with NGN amount
+      await recordLoanPayment(authUser.id, loan.id, {
+        amount: amountNGN,
+        transactionDate: paymentDate,
+        description: paymentNotes || undefined,
+        accountId: loan.accountId,
+        loanType: loan.loanType,
+        transactionType: loan.transactionType,
+        businessId: loan.businessId,
+      });
+
+      // Update loan total paid (using NGN amount)
+      const updatedLoan: Loan = {
+        ...loan,
+        totalPaid: loan.totalPaid + amountNGN,
+        status:
+          loan.totalPaid + amountNGN >= loan.principalAmount
+            ? "settled"
+            : "active",
+      };
+      onSave(updatedLoan);
+
+      // Reload payments
+      const data = await getLoanPayments(loan.id);
+      if (data) {
+        setPayments(data as Payment[]);
+      }
+
+      // Reset form
+      setPaymentAmount("");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      setPaymentNotes("");
+      triggerRefetch();
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      alert("Failed to record payment. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDeletePayment = (paymentId: string) => {
-    const payment = payments.find((p) => p.id === paymentId);
-    if (!payment) return;
-
-    setPayments(payments.filter((p) => p.id !== paymentId));
-
-    const updatedLoan: Loan = {
-      ...loan,
-      totalPaid: loan.totalPaid - payment.amount,
-      status: "active",
-    };
-    onSave(updatedLoan);
+    // For now, show a message that deletion isn't supported
+    // In a full implementation, you'd delete the transaction which would update the loan via trigger
+    alert(
+      "Payment deletion would require deleting the associated transaction. This is a data integrity safeguard.",
+    );
   };
 
   const handleDeleteLoan = () => {
@@ -161,7 +219,7 @@ export function EditLoanModal({
                       : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
                   }`}
                 >
-                  {loan.loanType === "borrowed" ? "I Borrowed" : "I Lent"}
+                  {loan.loanType === "borrowed" ? "Credit In" : "Credit Out"}
                 </span>
               </div>
 
@@ -268,15 +326,6 @@ export function EditLoanModal({
                   </span>
                 </div>
               )}
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Category
-                </span>
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {loan.category}
-                </span>
-              </div>
             </div>
 
             {/* Progress Bar */}
@@ -350,10 +399,11 @@ export function EditLoanModal({
 
                 <button
                   onClick={handleAddPayment}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors"
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium text-sm transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Payment
+                  {isLoading ? "Recording..." : "Add Payment"}
                 </button>
               </div>
             </div>
@@ -376,11 +426,13 @@ export function EditLoanModal({
                         {formatCurrency(payment.amount)}
                       </p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {new Date(payment.date).toLocaleDateString()}
+                        {new Date(
+                          payment.transaction_date,
+                        ).toLocaleDateString()}
                       </p>
-                      {payment.notes && (
+                      {payment.description && (
                         <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1">
-                          {payment.notes}
+                          {payment.description}
                         </p>
                       )}
                     </div>

@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
-import { accounts } from "./constants/accounts";
-import { businesses } from "./constants/businesses";
-import { Transaction } from "./TransactionListCard";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { CategorySelector } from "./CategorySelector";
+import { createClient } from "@/lib/supabase/client";
+import type { Transaction } from "./TransactionListCard";
+
+interface Account {
+  id: string;
+  name: string;
+}
+
+interface Business {
+  id: string;
+  name: string;
+}
 
 interface EditTransactionModalProps {
   transaction: Transaction;
@@ -36,9 +46,55 @@ export function EditTransactionModal({
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const { currentCurrency } = useCurrency();
+  const { triggerRefetch } = useTransactionStore();
   const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
   const currencySymbol = currency?.symbol || "$";
+
+  // Fetch accounts and businesses
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch accounts
+        const { data: accountsData } = await supabase
+          .from("accounts")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        // Fetch businesses
+        const { data: businessesData } = await supabase
+          .from("businesses")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        if (accountsData) setAccounts(accountsData);
+        if (businessesData) setBusinesses(businessesData);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleBusinessChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const businessId = e.target.value;
@@ -61,22 +117,96 @@ export function EditTransactionModal({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...transaction,
-      description: formData.description,
-      amount: formData.amount,
-      categoryId: formData.categoryId,
-      from: formData.fromAccount,
-      to: formData.toAccount,
-      businessId: formData.businessId,
-      date: formData.date,
-    });
+    setSubmitting(true);
+
+    try {
+      const supabase = createClient();
+
+      // Convert amount from current currency to NGN
+      let amountInNGN = formData.amount;
+      if (currentCurrency !== "NGN") {
+        const ngnRate = CURRENCIES.NGN.rateToUSD;
+        const valueInUSD = formData.amount / currency.rateToUSD;
+        amountInNGN = valueInUSD * ngnRate;
+      }
+
+      // Determine if business transaction
+      const isBusiness = formData.businessId !== "personal";
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          description: formData.description,
+          amount: amountInNGN,
+          category_id: formData.categoryId || null,
+          from_account_id: formData.fromAccount || null,
+          to_account_id: formData.toAccount || null,
+          business_id: isBusiness ? formData.businessId : null,
+          is_business: isBusiness,
+          transaction_date: formData.date,
+        })
+        .eq("id", transaction.id);
+
+      if (error) {
+        console.error("Error updating transaction:", error);
+        return;
+      }
+
+      // Trigger refetch in all cards
+      console.log("✅ Transaction updated successfully, triggering refetch...");
+      // Wait a moment for database triggers to execute before refetching
+      setTimeout(() => {
+        console.log("⏰ Calling triggerRefetch after delay");
+        triggerRefetch();
+      }, 300);
+
+      onSave({
+        ...transaction,
+        description: formData.description,
+        amount: formData.amount,
+        categoryId: formData.categoryId,
+        from: formData.fromAccount,
+        to: formData.toAccount,
+        businessId: formData.businessId,
+        date: formData.date,
+      });
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
-    onDelete(transaction.id);
+  const handleDelete = async () => {
+    setSubmitting(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", transaction.id);
+
+      if (error) {
+        console.error("Error deleting transaction:", error);
+        return;
+      }
+
+      // Trigger refetch in all cards
+      console.log("✅ Transaction deleted successfully, triggering refetch...");
+      // Wait a moment for database triggers to execute before refetching
+      setTimeout(() => {
+        console.log("⏰ Calling triggerRefetch after delay");
+        triggerRefetch();
+      }, 300);
+
+      onDelete(transaction.id);
+    } catch (err) {
+      console.error("Error:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -105,15 +235,17 @@ export function EditTransactionModal({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                disabled={submitting}
+                className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-medium text-white"
+                disabled={submitting}
+                className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-sm font-medium text-white"
               >
-                Delete
+                {submitting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -166,6 +298,7 @@ export function EditTransactionModal({
                 value={formData.businessId}
                 onChange={handleBusinessChange}
                 className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loading}
               >
                 <option value="personal">Personal</option>
                 {businesses.map((business) => (
@@ -203,6 +336,7 @@ export function EditTransactionModal({
                 value={formData.fromAccount}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loading}
               >
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -222,6 +356,7 @@ export function EditTransactionModal({
                 value={formData.toAccount}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={loading}
               >
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -251,7 +386,8 @@ export function EditTransactionModal({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium flex items-center gap-2"
+                disabled={submitting}
+                className="flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium flex items-center gap-2"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -259,15 +395,17 @@ export function EditTransactionModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                disabled={submitting}
+                className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                disabled={submitting || loading}
+                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium"
               >
-                Save
+                {submitting ? "Saving..." : "Save"}
               </button>
             </div>
           </form>

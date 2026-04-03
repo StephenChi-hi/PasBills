@@ -1,10 +1,23 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import * as Icons from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
-import { incomeCategories } from "./constants/incomeCategories";
-import { expenseCategories } from "./constants/expenseCategories";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
+import { createClient } from "@/lib/supabase/client";
+
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  type: "income" | "expense";
+  category_type: "personal" | "business";
+}
+
+interface CategoryAmount {
+  [categoryId: string]: number;
+}
 
 // Helper to get icon component
 function getIconComponent(iconName: string) {
@@ -12,57 +25,90 @@ function getIconComponent(iconName: string) {
   const IconComponent = Icons[iconKey] as React.ComponentType<{
     className: string;
   }>;
-  return IconComponent;
+  return IconComponent || Icons.HelpCircle;
 }
 
-// Sample data - in a real app, this would come from backend
-const categoryAmounts = {
-  // Income
-  personal_salary: 5000,
-  personal_freelance: 2500,
-  personal_investment: 1200,
-  personal_refund: 0,
-  personal_bonus: 0,
-  personal_other: 300,
-  business_sales: 8500,
-  business_services: 3200,
-  business_consulting: 4100,
-  business_royalties: 560,
-  business_subscription: 0,
-  business_other: 0,
-
-  // Expenses
-  personal_groceries: 450,
-  personal_utilities: 130,
-  personal_transportation: 280,
-  personal_entertainment: 150,
-  personal_healthcare: 0,
-  personal_shopping: 200,
-  personal_dining: 320,
-  personal_gas: 90,
-  personal_rent: 1500,
-  personal_phone: 80,
-  business_supplies: 145,
-  business_software: 99,
-  business_marketing: 350,
-  business_payroll: 2500,
-  business_equipment: 450,
-  business_travel: 200,
-  business_client: 0,
-  business_hosting: 45,
-  business_professional: 150,
-};
-
 export function CashFlowDynamicsCard() {
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryAmounts, setCategoryAmounts] = useState<CategoryAmount>({});
   const { currentCurrency } = useCurrency();
+  const { refetchTrigger } = useTransactionStore();
+
+  // Fetch transactions and aggregate by category
+  useEffect(() => {
+    console.log(
+      "🔄 CashFlowDynamicsCard useEffect triggered, refetchTrigger =",
+      refetchTrigger,
+    );
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        console.log("Fetching categories and transactions for user:", user.id);
+
+        // Fetch all categories
+        const { data: categoriesData } = await supabase
+          .from("categories")
+          .select("id, name, icon, type, category_type")
+          .or(`user_id.is.null,user_id.eq.${user.id}`);
+
+        if (categoriesData) {
+          setCategories(categoriesData as Category[]);
+        }
+
+        // Fetch transactions and aggregate by category
+        const { data: transactionsData, error } = await supabase
+          .from("transactions")
+          .select("amount, category_id, is_business")
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error("Error fetching transactions:", error);
+          setLoading(false);
+          return;
+        }
+
+        // Aggregate transactions by category
+        const amounts: CategoryAmount = {};
+        (transactionsData || []).forEach((tx: any) => {
+          if (tx.category_id) {
+            amounts[tx.category_id] =
+              (amounts[tx.category_id] || 0) + tx.amount;
+          }
+        });
+
+        console.log("Category amounts aggregated:", amounts);
+        setCategoryAmounts(amounts);
+      } catch (err) {
+        console.error("Error fetching cash flow data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [refetchTrigger]);
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
     if (!currency) return value.toFixed(0);
 
-    // Convert from USD to selected currency
-    const usdToSelectedRate = currency.rateToUSD;
-    const convertedValue = value * usdToSelectedRate;
+    // Database stores amount in NGN, convert to selected currency
+    // NGN → USD: divide by NGN rate
+    // USD → selected currency: multiply by currency rate
+    const ngnRate = CURRENCIES.NGN.rateToUSD; // 1550
+    const valueInUSD = value / ngnRate;
+    const convertedValue = valueInUSD * currency.rateToUSD;
 
     const formatted = new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 0,
@@ -72,28 +118,24 @@ export function CashFlowDynamicsCard() {
     return `${currency.symbol}${formatted}`;
   };
 
-  // Get personal and business income
-  const personalIncome = incomeCategories.filter(
-    (cat) => cat.subcategory === "personal",
+  // Get categories grouped by type and category_type
+  // This ensures we get separate category arrays for income vs expense, even if they have the same name
+  const personalIncome = categories.filter(
+    (cat) => cat.type === "income" && cat.category_type === "personal",
   );
-  const businessIncome = incomeCategories.filter(
-    (cat) => cat.subcategory === "business",
+  const businessIncome = categories.filter(
+    (cat) => cat.type === "income" && cat.category_type === "business",
+  );
+  const personalExpenses = categories.filter(
+    (cat) => cat.type === "expense" && cat.category_type === "personal",
+  );
+  const businessExpenses = categories.filter(
+    (cat) => cat.type === "expense" && cat.category_type === "business",
   );
 
-  // Get personal and business expenses
-  const personalExpenses = expenseCategories.filter(
-    (cat) => cat.subcategory === "personal",
-  );
-  const businessExpenses = expenseCategories.filter(
-    (cat) => cat.subcategory === "business",
-  );
-
-  const renderCategoryItem = (
-    category: (typeof incomeCategories)[0] | (typeof expenseCategories)[0],
-  ) => {
-    const IconComponent = getIconComponent(category.iconName);
-    const amount =
-      categoryAmounts[category.id as keyof typeof categoryAmounts] || 0;
+  const renderCategoryItem = (category: Category) => {
+    const IconComponent = getIconComponent(category.icon);
+    const amount = categoryAmounts[category.id] || 0;
 
     if (amount === 0) return null;
 
@@ -117,21 +159,22 @@ export function CashFlowDynamicsCard() {
     );
   };
 
-  const calcPersonalIncome = personalIncome.reduce((sum, cat) => {
-    return sum + (categoryAmounts[cat.id as keyof typeof categoryAmounts] || 0);
-  }, 0);
-
-  const calcBusinessIncome = businessIncome.reduce((sum, cat) => {
-    return sum + (categoryAmounts[cat.id as keyof typeof categoryAmounts] || 0);
-  }, 0);
-
-  const calcPersonalExpenses = personalExpenses.reduce((sum, cat) => {
-    return sum + (categoryAmounts[cat.id as keyof typeof categoryAmounts] || 0);
-  }, 0);
-
-  const calcBusinessExpenses = businessExpenses.reduce((sum, cat) => {
-    return sum + (categoryAmounts[cat.id as keyof typeof categoryAmounts] || 0);
-  }, 0);
+  const calcPersonalIncome = personalIncome.reduce(
+    (sum, cat) => sum + (categoryAmounts[cat.id] || 0),
+    0,
+  );
+  const calcBusinessIncome = businessIncome.reduce(
+    (sum, cat) => sum + (categoryAmounts[cat.id] || 0),
+    0,
+  );
+  const calcPersonalExpenses = personalExpenses.reduce(
+    (sum, cat) => sum + (categoryAmounts[cat.id] || 0),
+    0,
+  );
+  const calcBusinessExpenses = businessExpenses.reduce(
+    (sum, cat) => sum + (categoryAmounts[cat.id] || 0),
+    0,
+  );
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -143,84 +186,120 @@ export function CashFlowDynamicsCard() {
 
       {/* Main Grid - Personal and Business Rows */}
       <div className="space-y-6 p-6">
-        {/* PERSONAL ROW */}
-        <div>
-          <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
-            Personal
-          </h4>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Personal Income - Left */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                  Income
-                </p>
-                <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(calcPersonalIncome)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                {personalIncome.map((cat) => renderCategoryItem(cat))}
-              </div>
-            </div>
-
-            {/* Personal Expenses - Right */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                  Expenses
-                </p>
-                <p className="text-sm font-bold text-red-600 dark:text-red-400">
-                  {formatCurrency(calcPersonalExpenses)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                {personalExpenses.map((cat) => renderCategoryItem(cat))}
-              </div>
-            </div>
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Loading cash flow data...
+            </p>
           </div>
-        </div>
-
-        {/* BUSINESS ROW */}
-        <div>
-          <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
-            Business
-          </h4>
-          <div className="grid grid-cols-2 gap-6">
-            {/* Business Income - Left */}
+        ) : (
+          <>
+            {/* PERSONAL ROW */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                  Income
-                </p>
-                <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(calcBusinessIncome)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                {businessIncome.map((cat) => renderCategoryItem(cat))}
+              <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
+                Personal
+              </h4>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Personal Income - Left */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
+                      Income
+                    </p>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(calcPersonalIncome)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {personalIncome.map((cat) => renderCategoryItem(cat))}
+                    {personalIncome.every(
+                      (cat) => !categoryAmounts[cat.id],
+                    ) && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        No income recorded
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Personal Expenses - Right */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                      Expenses
+                    </p>
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">
+                      {formatCurrency(calcPersonalExpenses)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {personalExpenses.map((cat) => renderCategoryItem(cat))}
+                    {personalExpenses.every(
+                      (cat) => !categoryAmounts[cat.id],
+                    ) && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        No expenses recorded
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Business Expenses - Right */}
+            {/* BUSINESS ROW */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                  Expenses
-                </p>
-                <p className="text-sm font-bold text-red-600 dark:text-red-400">
-                  {formatCurrency(calcBusinessExpenses)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                {businessExpenses.map((cat) => renderCategoryItem(cat))}
+              <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
+                Business
+              </h4>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Business Income - Left */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
+                      Income
+                    </p>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(calcBusinessIncome)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {businessIncome.map((cat) => renderCategoryItem(cat))}
+                    {businessIncome.every(
+                      (cat) => !categoryAmounts[cat.id],
+                    ) && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        No income recorded
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Business Expenses - Right */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                      Expenses
+                    </p>
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">
+                      {formatCurrency(calcBusinessExpenses)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {businessExpenses.map((cat) => renderCategoryItem(cat))}
+                    {businessExpenses.every(
+                      (cat) => !categoryAmounts[cat.id],
+                    ) && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        No expenses recorded
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
-
-      
     </div>
   );
 }

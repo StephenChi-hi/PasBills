@@ -50,13 +50,11 @@ const AVAILABLE_ICONS = [
   "Shield",
   "Target",
   "Lightbulb",
-  "Zap",
   "Wifi",
   "Bluetooth",
   "Radio",
   "Headphones",
   "User",
-  "Users",
   "Share2",
   "Share",
   "Send",
@@ -109,19 +107,17 @@ const AVAILABLE_ICONS = [
   "Tags",
   "Bookmark",
   "Star",
-  "Heart",
   "Smile",
   "Frown",
   "Meh",
   "Laugh",
-  "AlertCircle",
 ] as const;
 
 interface CreateCategoryModalProps {
   categoryType: "personal" | "business";
   type: "income" | "expense";
   onClose: () => void;
-  onCreateCategory: (name: string, icon: string) => void;
+  onCreateCategory: (name: string, icon: string) => Promise<void>;
 }
 
 function getIconComponent(iconName: string) {
@@ -141,24 +137,58 @@ export function CreateCategoryModal({
   const [categoryName, setCategoryName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("HelpCircle");
   const [searchIcon, setSearchIcon] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const filteredIcons = AVAILABLE_ICONS.filter((icon) =>
     icon.toLowerCase().includes(searchIcon.toLowerCase()),
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (categoryName.trim()) {
-      onCreateCategory(categoryName, selectedIcon);
+    e.stopPropagation();
+    if (!categoryName.trim()) return;
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      console.log("Modal: Starting category creation");
+      await onCreateCategory(categoryName, selectedIcon);
+      console.log("Modal: Category created successfully");
+      // Reset form state
       setCategoryName("");
       setSelectedIcon("HelpCircle");
       setSearchIcon("");
+      // Close the modal after successful creation
+      setTimeout(() => {
+        console.log("Modal: Closing modal");
+        onClose();
+      }, 0);
+    } catch (err) {
+      console.error("Modal: Error creating category:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create category",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        // Only close if clicking the overlay itself, not the modal content
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
@@ -172,7 +202,18 @@ export function CreateCategoryModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          onClick={(e) => e.stopPropagation()}
+          className="p-6 space-y-4"
+        >
+          {/* Error Display */}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
           {/* Category Name */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -262,16 +303,17 @@ export function CreateCategoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!categoryName.trim()}
-              className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white font-medium transition-colors"
+              disabled={!categoryName.trim() || isSubmitting}
+              className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white font-medium transition-colors disabled:cursor-not-allowed"
             >
-              Create
+              {isSubmitting ? "Creating..." : "Create"}
             </button>
           </div>
         </form>

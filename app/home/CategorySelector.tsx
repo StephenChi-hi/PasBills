@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import * as Icons from "lucide-react";
-import { incomeCategories } from "./constants/incomeCategories";
-import { expenseCategories } from "./constants/expenseCategories";
 import { CreateCategoryModal } from "./CreateCategoryModal";
+import { createClient } from "@/lib/supabase/client";
+
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+}
 
 interface CategorySelectorProps {
   type: "income" | "expense";
@@ -18,7 +24,7 @@ function getIconComponent(iconName: string) {
   const IconComponent = Icons[iconKey] as React.ComponentType<{
     className: string;
   }>;
-  return IconComponent;
+  return IconComponent || Icons.HelpCircle;
 }
 
 export function CategorySelector({
@@ -29,41 +35,143 @@ export function CategorySelector({
 }: CategorySelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [customCategories, setCustomCategories] = useState<
-    Array<{ id: string; name: string; icon: string }>
-  >([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [portalReady, setPortalReady] = useState(false);
 
-  const allCategories =
-    type === "income" ? incomeCategories : expenseCategories;
+  // Ensure portal is ready on client
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
-  // Filter by category type and search query
-  const filteredCategories = allCategories.filter(
-    (cat) =>
-      cat.subcategory === categoryType &&
-      cat.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  // Fetch categories from database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch both default and user's custom categories
+        const { data, error } = await supabase
+          .from("categories")
+          .select("id, name, icon, type, category_type")
+          .eq("type", type)
+          .eq("category_type", categoryType)
+          .or(`user_id.is.null,user_id.eq.${user.id}`);
+
+        if (error) {
+          console.error("Error fetching categories:", error);
+          setLoading(false);
+          return;
+        }
+
+        // Transform data to match Category interface
+        const transformedCategories = (data || []).map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          icon: cat.icon,
+        }));
+
+        setCategories(transformedCategories);
+      } catch (err) {
+        console.error("Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, [type, categoryType]);
+
+  // Filter by search query
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Combine with custom categories
-  const displayCategories = [
-    ...filteredCategories,
-    ...customCategories.filter(
-      (cat) =>
-        cat.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        cat.id.includes(categoryType),
-    ),
-  ];
+  const handleCreateCategory = async (
+    categoryName: string,
+    iconName: string,
+  ) => {
+    try {
+      console.log("=== CATEGORY CREATION START ===");
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-  const handleCreateCategory = (categoryName: string, iconName: string) => {
-    const categoryId = `${categoryType}_${categoryName.toLowerCase().replace(/\s+/g, "_")}`;
-    const newCategory = {
-      id: categoryId,
-      name: categoryName,
-      icon: iconName,
-    };
-    setCustomCategories([...customCategories, newCategory]);
-    onSelectCategory(categoryId);
-    setShowCreateModal(false);
-    setSearchQuery("");
+      if (!user) {
+        console.error("❌ User not authenticated");
+        throw new Error("User not authenticated. Please sign in again.");
+      }
+
+      console.log("✓ User authenticated:", user.id);
+      console.log("✓ Creating category with:", {
+        user_id: user.id,
+        name: categoryName,
+        icon: iconName,
+        type: type,
+        category_type: categoryType,
+        is_custom: true,
+      });
+
+      // Insert new category into database
+      const { data, error } = await supabase
+        .from("categories")
+        .insert([
+          {
+            user_id: user.id,
+            name: categoryName,
+            icon: iconName,
+            type: type,
+            category_type: categoryType,
+            is_custom: true,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+        });
+        throw new Error(
+          error.message || "Failed to create category in database",
+        );
+      }
+
+      console.log("✓ Category inserted successfully:", data);
+
+      // Add the new category to local state
+      if (data) {
+        const newCategory = {
+          id: data.id,
+          name: data.name,
+          icon: data.icon,
+        };
+        console.log("✓ Adding to local state:", newCategory);
+        setCategories([...categories, newCategory]);
+        onSelectCategory(data.id);
+        console.log("✓ Selected category:", data.id);
+      }
+
+      setShowCreateModal(false);
+      setSearchQuery("");
+      console.log("=== CATEGORY CREATION SUCCESS ===");
+    } catch (err) {
+      console.error("=== CATEGORY CREATION FAILED ===");
+      console.error("Error in handleCreateCategory:", err);
+      throw err;
+    }
   };
 
   return (
@@ -80,13 +188,20 @@ export function CategorySelector({
 
         {/* Category Grid */}
         <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900">
-          {displayCategories.length > 0 ? (
-            displayCategories.map((cat) => {
-              // Handle both iconName (from default categories) and icon (from custom)
-              const iconName =
-                (cat as any).iconName || (cat as any).icon || "HelpCircle";
-              const IconComponent = getIconComponent(iconName);
+          {loading ? (
+            <div className="col-span-4 text-center py-4">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Loading categories...
+              </p>
+            </div>
+          ) : filteredCategories.length > 0 ? (
+            filteredCategories.map((cat) => {
+              const IconComponent = getIconComponent(cat.icon);
               const isSelected = selectedCategoryId === cat.id;
+
+              if (!IconComponent) {
+                return null;
+              }
 
               return (
                 <button
@@ -126,15 +241,18 @@ export function CategorySelector({
         </button>
       </div>
 
-      {/* Create Category Modal */}
-      {showCreateModal && (
-        <CreateCategoryModal
-          categoryType={categoryType}
-          type={type}
-          onClose={() => setShowCreateModal(false)}
-          onCreateCategory={handleCreateCategory}
-        />
-      )}
+      {/* Create Category Modal - Rendered via Portal to Avoid Form Nesting */}
+      {portalReady &&
+        showCreateModal &&
+        createPortal(
+          <CreateCategoryModal
+            categoryType={categoryType}
+            type={type}
+            onClose={() => setShowCreateModal(false)}
+            onCreateCategory={handleCreateCategory}
+          />,
+          document.body,
+        )}
     </>
   );
 }
