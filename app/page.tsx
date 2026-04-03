@@ -12,6 +12,8 @@ import { CurrencySwitcher } from "./home/CurrencySwitcher";
 import { ResetDataButton } from "./home/ResetDataButton";
 import { DownloadTransactionsButton } from "./home/DownloadTransactionsButton";
 import { BottomNav } from "./home/BottomNav";
+import { AITimelineButton } from "./home/AITimelineButton";
+import { CalculateTaxButton } from "./home/CalculateTaxButton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { HandCoins, LogOut } from "lucide-react";
@@ -30,7 +32,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black pb-24">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with User Info */}
         <div className="mb-8 flex items-center justify-between">
@@ -46,13 +48,6 @@ export default function Home() {
               {user?.email ? ` ${user.email}` : ""}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
         </div>
 
         {/* Two-Column Grid Layout */}
@@ -93,12 +88,21 @@ export default function Home() {
           <CashFlowDynamicsCard />
         </div>
 
-        {/* Currency Switcher */}
+        {/* other tools  */}
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <CurrencySwitcher />
 
           <DownloadTransactionsButton />
+          <AITimelineButton />
+          <CalculateTaxButton />
           <ResetDataButton />
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
         </div>
       </main>
 

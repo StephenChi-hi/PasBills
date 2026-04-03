@@ -111,10 +111,25 @@ export function EditTransactionModal({
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "amount" ? parseFloat(value) || 0 : value,
-    }));
+    if (name === "amount") {
+      // Remove all non-digit and non-dot characters
+      let numericValue = value.replace(/[^0-9.]/g, "");
+      // Ensure only one decimal point
+      const parts = numericValue.split(".");
+      if (parts.length > 2) {
+        numericValue = parts[0] + "." + parts.slice(1).join("");
+      }
+      const parsedValue = parseFloat(numericValue) || 0;
+      setFormData((prev) => ({
+        ...prev,
+        [name]: parsedValue,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: name === "amount" ? parseFloat(value) || 0 : value,
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -265,7 +280,7 @@ export function EditTransactionModal({
                 value={formData.description}
                 onChange={handleChange}
                 placeholder="e.g., Client Payment, Grocery Shopping"
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -276,14 +291,15 @@ export function EditTransactionModal({
                 Amount ({currencySymbol})
               </label>
               <input
-                type="number"
+                type="text"
                 name="amount"
-                value={formData.amount}
+                value={formData.amount === 0 ? "" : formData.amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                })}
                 onChange={handleChange}
                 placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -297,7 +313,7 @@ export function EditTransactionModal({
                 name="businessId"
                 value={formData.businessId}
                 onChange={handleBusinessChange}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               >
                 <option value="personal">Personal</option>
@@ -336,7 +352,7 @@ export function EditTransactionModal({
                   name="fromAccount"
                   value={formData.fromAccount}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 >
                   {accounts.map((account) => (
@@ -358,7 +374,7 @@ export function EditTransactionModal({
                   name="toAccount"
                   value={formData.toAccount}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 >
                   {accounts.map((account) => (
@@ -380,7 +396,7 @@ export function EditTransactionModal({
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>

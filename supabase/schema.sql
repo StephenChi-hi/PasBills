@@ -158,12 +158,17 @@ CREATE POLICY "Users can view their own balance"
 CREATE OR REPLACE FUNCTION update_user_balance()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Upsert into balance table: sum all account balances for the user
+
+
+  -- Upsert into balance table:
+  -- liquid_balance = sum of all account balances
+  -- net_worth = liquid_balance + sum of tangible asset transactions
   INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
   VALUES (
     COALESCE(NEW.user_id, OLD.user_id),
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id)),
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id)),
+    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true),
+    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true) +
+    COALESCE((SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND tangible_assets = true), 0),
     NOW()
   )
   ON CONFLICT (user_id) DO UPDATE
@@ -210,13 +215,14 @@ CREATE POLICY "Users can delete their own balance"
 -- ============================================
 INSERT INTO balance (user_id, liquid_balance, net_worth, created_at, updated_at)
 SELECT
-  a.user_id,
+  COALESCE(a.user_id, t.user_id) AS user_id,
   COALESCE(SUM(a.balance), 0) AS liquid_balance,
-  COALESCE(SUM(a.balance), 0) AS net_worth,
+  COALESCE(SUM(a.balance), 0) + COALESCE((SELECT SUM(amount) FROM transactions WHERE tangible_assets = true AND user_id = COALESCE(a.user_id, t.user_id)), 0) AS net_worth,
   NOW(),
   NOW()
 FROM accounts a
-GROUP BY a.user_id
+FULL OUTER JOIN (SELECT DISTINCT user_id FROM transactions WHERE tangible_assets = true) t ON a.user_id = t.user_id
+GROUP BY COALESCE(a.user_id, t.user_id)
 ON CONFLICT (user_id) DO UPDATE
   SET liquid_balance = EXCLUDED.liquid_balance,
       net_worth = EXCLUDED.net_worth,
@@ -926,7 +932,7 @@ CREATE TRIGGER trg_update_tangible_assets_net_worth_insert
 
 
 
-  
+
 
 
 

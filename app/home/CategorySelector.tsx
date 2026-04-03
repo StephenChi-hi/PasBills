@@ -38,6 +38,7 @@ export function CategorySelector({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [portalReady, setPortalReady] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Ensure portal is ready on client
   useEffect(() => {
@@ -93,6 +94,10 @@ export function CategorySelector({
   // Filter by search query
   const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const selectedCategory = categories.find(
+    (cat) => cat.id === selectedCategoryId,
   );
 
   const handleCreateCategory = async (
@@ -177,68 +182,139 @@ export function CategorySelector({
   return (
     <>
       <div className="space-y-3">
-        {/* Search Bar */}
-        <input
-          type="text"
-          placeholder="Search categories..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {/* Collapsed View - Show Selected Category */}
+        {!isExpanded && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            className="w-full h-10 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors flex items-center justify-between"
+          >
+            <span className="flex items-center gap-2">
+              {selectedCategory && (
+                <>
+                  {(() => {
+                    const IconComponent = getIconComponent(
+                      selectedCategory.icon,
+                    );
+                    return <IconComponent className="h-4 w-4" />;
+                  })()}
+                  <span className="text-sm">{selectedCategory.name}</span>
+                </>
+              )}
+              {!selectedCategory && (
+                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Select category
+                </span>
+              )}
+            </span>
+            <svg
+              className="h-4 w-4 text-zinc-600 dark:text-zinc-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+              />
+            </svg>
+          </button>
+        )}
 
-        {/* Category Grid */}
-        <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900">
-          {loading ? (
-            <div className="col-span-4 text-center py-4">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Loading categories...
-              </p>
+        {/* Expanded View - Show All Categories */}
+        {isExpanded && (
+          <div className="space-y-2 border border-zinc-300 dark:border-zinc-600 rounded-lg p-2 bg-white dark:bg-zinc-800">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="w-full px-2 py-1 rounded text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors flex items-center justify-between"
+            >
+              <span>Hide categories</span>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 15l7-7 7 7"
+                />
+              </svg>
+            </button>
+
+            {/* Search Bar */}
+            <input
+              type="text"
+              placeholder="Search categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+
+            {/* Category Grid */}
+            <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+              {loading ? (
+                <div className="col-span-4 text-center py-4">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Loading categories...
+                  </p>
+                </div>
+              ) : filteredCategories.length > 0 ? (
+                filteredCategories.map((cat) => {
+                  const IconComponent = getIconComponent(cat.icon);
+                  const isSelected = selectedCategoryId === cat.id;
+
+                  if (!IconComponent) {
+                    return null;
+                  }
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectCategory(cat.id);
+                        setIsExpanded(false);
+                      }}
+                      className={`p-2 rounded-lg flex flex-col items-center gap-1 transition-all ${
+                        isSelected
+                          ? "bg-blue-500 text-white ring-2 ring-blue-200"
+                          : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-50 dark:hover:bg-zinc-700"
+                      }`}
+                      title={cat.name}
+                    >
+                      <IconComponent className="h-5 w-5" />
+                      <span className="text-xs text-center truncate">
+                        {cat.name.split(" ")[0]}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-4 text-center py-4">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    No categories found
+                  </p>
+                </div>
+              )}
             </div>
-          ) : filteredCategories.length > 0 ? (
-            filteredCategories.map((cat) => {
-              const IconComponent = getIconComponent(cat.icon);
-              const isSelected = selectedCategoryId === cat.id;
 
-              if (!IconComponent) {
-                return null;
-              }
-
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => onSelectCategory(cat.id)}
-                  className={`p-2 rounded-lg flex flex-col items-center gap-1 transition-all ${
-                    isSelected
-                      ? "bg-blue-500 text-white ring-2 ring-blue-200"
-                      : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-50 dark:hover:bg-zinc-700"
-                  }`}
-                  title={cat.name}
-                >
-                  <IconComponent className="h-5 w-5" />
-                  <span className="text-xs text-center truncate">
-                    {cat.name.split(" ")[0]}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <div className="col-span-4 text-center py-4">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                No categories found
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Create New Category Button */}
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="w-full px-3 py-2 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium transition-colors"
-        >
-          + Create New Category
-        </button>
+            {/* Create New Category Button */}
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="w-full px-3 py-2 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium transition-colors"
+            >
+              + Create New Category
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Create Category Modal - Rendered via Portal to Avoid Form Nesting */}

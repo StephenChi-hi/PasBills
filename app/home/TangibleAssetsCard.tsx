@@ -227,6 +227,25 @@ export function TangibleAssetsCard({
         return;
       }
 
+      // Fetch current net_worth and deduct the initial asset amount
+      const { data: balanceData } = await supabase
+        .from("balance")
+        .select("net_worth")
+        .eq("user_id", user.id)
+        .single();
+
+      if (balanceData) {
+        const newNetWorth = balanceData.net_worth - selectedAsset.amount;
+        const { error: updateNetWorthError } = await supabase
+          .from("balance")
+          .update({ net_worth: newNetWorth })
+          .eq("user_id", user.id);
+
+        if (updateNetWorthError) {
+          console.error("Error deducting from net_worth:", updateNetWorthError);
+        }
+      }
+
       // Update the original tangible asset transaction to set tangible_assets = false
       const { error: updateError } = await supabase
         .from("transactions")
