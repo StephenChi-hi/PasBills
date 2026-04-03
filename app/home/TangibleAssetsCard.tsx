@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/auth-context";
 
 interface TangibleAsset {
   id: string;
@@ -28,16 +30,28 @@ interface Business {
   name: string;
 }
 
+interface Account {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export function TangibleAssetsCard({
   assets: propAssets,
 }: TangibleAssetsCardProps) {
   const [loading, setLoading] = useState(true);
   const [assets, setAssets] = useState<TangibleAsset[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<TangibleAsset | null>(
     null,
   );
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [showSoldInput, setShowSoldInput] = useState(false);
+  const [saleAmount, setSaleAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { currentCurrency } = useCurrency();
-  const { refetchTrigger } = useTransactionStore();
+  const { refetchTrigger, triggerRefetch } = useTransactionStore();
+  const { user } = useAuth();
 
   // Fetch tangible assets from database
   useEffect(() => {
@@ -119,6 +133,32 @@ export function TangibleAssetsCard({
     fetchTangibleAssets();
   }, [refetchTrigger]);
 
+  // Fetch accounts when modal opens
+  useEffect(() => {
+    if (!selectedAsset || !user) return;
+
+    const fetchAccounts = async () => {
+      try {
+        const supabase = createClient();
+        const { data: accountsData } = await supabase
+          .from("accounts")
+          .select("id, name, type")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+
+        if (accountsData && accountsData.length > 0) {
+          setAccounts(accountsData);
+          setSelectedAccountId(accountsData[0].id); // Set first account as default
+        }
+      } catch (err) {
+        console.error("Error fetching accounts:", err);
+      }
+    };
+
+    fetchAccounts();
+  }, [selectedAsset, user]);
+
   const personalAssets = assets.filter((a) => a.transactionType === "personal");
   const businessAssets = assets.filter((a) => a.transactionType === "business");
 
@@ -154,16 +194,102 @@ export function TangibleAssetsCard({
     return `${currency.symbol}${formatted}`;
   };
 
+  const handleSaleTransaction = async () => {
+    if (!selectedAsset || !saleAmount || !user || !selectedAccountId) return;
+
+    setSubmitting(true);
+    try {
+      const supabase = createClient();
+
+      // Determine category based on asset type
+      let categoryName = "Item Sales"; // personal
+      if (selectedAsset.transactionType === "business") {
+        categoryName = "Sales";
+      }
+
+      // Fetch the category ID
+      const { data: categoryData } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", categoryName)
+        .eq("type", "income")
+        .eq(
+          "category_type",
+          selectedAsset.transactionType === "business"
+            ? "business"
+            : "personal",
+        )
+        .single();
+
+      if (!categoryData) {
+        console.error("Category not found");
+        setSubmitting(false);
+        return;
+      }
+
+      // Update the original tangible asset transaction to set tangible_assets = false
+      const { error: updateError } = await supabase
+        .from("transactions")
+        .update({ tangible_assets: false })
+        .eq("id", selectedAsset.id);
+
+      if (updateError) {
+        console.error(
+          "Error updating tangible asset transaction:",
+          updateError,
+        );
+        setSubmitting(false);
+        return;
+      }
+
+      // Create income transaction for the sale
+      const { error: insertError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: "income",
+          description: `Sold: ${selectedAsset.description}`,
+          amount: parseFloat(saleAmount),
+          category_id: categoryData.id,
+          from_account_id: null,
+          to_account_id: selectedAccountId,
+          business_id: selectedAsset.businessId || null,
+          is_business: selectedAsset.transactionType === "business",
+          tangible_assets: false,
+          transaction_date: new Date().toISOString().split("T")[0],
+        });
+
+      if (insertError) {
+        console.error("Error creating sale transaction:", insertError);
+      } else {
+        // Reset modal state
+        setSelectedAsset(null);
+        setShowSoldInput(false);
+        setSaleAmount("");
+        setSelectedAccountId("");
+        // Trigger refetch
+        triggerRefetch();
+      }
+    } catch (err) {
+      console.error("Error processing sale:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedAsset(null);
+    setShowSoldInput(false);
+    setSaleAmount("");
+    setSelectedAccountId("");
+  };
+
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
           Tangible Assets
         </h3>
-        <button className="flex items-center gap-1 rounded-full bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:hover:bg-purple-800">
-          <Plus className="h-3.5 w-3.5" />
-          Add
-        </button>
       </div>
 
       {/* Two Column Grid */}
@@ -305,6 +431,157 @@ export function TangibleAssetsCard({
           </>
         )}
       </div>
+
+      {/* Asset Details Modal */}
+      <AnimatePresence>
+        {selectedAsset && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseModal}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white dark:bg-zinc-900 rounded-lg shadow-xl p-6 max-w-sm w-full"
+            >
+              {/* Close Button */}
+              <button
+                onClick={handleCloseModal}
+                className="absolute top-4 right-4 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
+              </button>
+
+              {/* Asset Details */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                  Asset Details
+                </h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold">
+                      Description
+                    </p>
+                    <p className="text-sm text-zinc-900 dark:text-zinc-100 font-medium">
+                      {selectedAsset.description}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold">
+                      Amount
+                    </p>
+                    <p className="text-sm text-zinc-900 dark:text-zinc-100 font-medium">
+                      {formatCurrency(selectedAsset.amount)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold">
+                      Date
+                    </p>
+                    <p className="text-sm text-zinc-900 dark:text-zinc-100 font-medium">
+                      {new Date(selectedAsset.date).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold">
+                      Type
+                    </p>
+                    <p className="text-sm text-zinc-900 dark:text-zinc-100 font-medium capitalize">
+                      {selectedAsset.transactionType}
+                      {selectedAsset.businessName &&
+                        ` - ${selectedAsset.businessName}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sale Input Section */}
+              {!showSoldInput ? (
+                <button
+                  onClick={() => setShowSoldInput(true)}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                >
+                  Sold
+                </button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-3"
+                >
+                  <div>
+                    <label className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold block mb-2">
+                      Sale Amount ({currentCurrency})
+                    </label>
+                    <input
+                      type="number"
+                      value={saleAmount}
+                      onChange={(e) => setSaleAmount(e.target.value)}
+                      placeholder="Enter sale amount"
+                      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-semibold block mb-2">
+                      Deposit To Account
+                    </label>
+                    {accounts.length > 0 ? (
+                      <select
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name} ({account.type})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        No accounts available
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowSoldInput(false);
+                        setSaleAmount("");
+                      }}
+                      className="flex-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-900 dark:text-zinc-100 font-semibold py-2 px-4 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaleTransaction}
+                      disabled={!saleAmount || submitting}
+                      className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                    >
+                      {submitting ? "Processing..." : "Confirm Sale"}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

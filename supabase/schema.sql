@@ -926,6 +926,10 @@ CREATE TRIGGER trg_update_tangible_assets_net_worth_insert
 
 
 
+  
+
+
+
 
 
 
