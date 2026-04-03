@@ -889,6 +889,42 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION clear_my_data() TO authenticated;
 
 
+-- ============================================================================================================
+-- TANGIBLE ASSETS NET WORTH UPDATE TRIGGER
+-- ============================================================================================================
+-- Purpose: Add tangible asset transactions to net_worth only (not liquid_balance)
+-- Logic:
+--   If tangible_assets = true → Add amount to net_worth ONLY
+--   Regular transactions (tangible_assets = false) → Handled by update_user_balance & update_account_balance triggers
+
+CREATE OR REPLACE FUNCTION update_tangible_assets_net_worth()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.tangible_assets THEN
+    -- Add tangible asset to net_worth only
+    INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
+    VALUES (NEW.user_id, 0, NEW.amount, NOW())
+    ON CONFLICT (user_id) DO UPDATE
+      SET net_worth = balance.net_worth + NEW.amount,
+          updated_at = NOW();
+  END IF;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- Trigger for Tangible Assets Net Worth Updates
+-- ============================================
+DROP TRIGGER IF EXISTS trg_update_tangible_assets_net_worth_insert ON transactions;
+DROP TRIGGER IF EXISTS trg_update_tangible_assets_net_worth_update ON transactions;
+DROP TRIGGER IF EXISTS trg_update_tangible_assets_net_worth_delete ON transactions;
+
+CREATE TRIGGER trg_update_tangible_assets_net_worth_insert
+  AFTER INSERT ON transactions
+  FOR EACH ROW EXECUTE FUNCTION update_tangible_assets_net_worth();
+
+
 
 
 
