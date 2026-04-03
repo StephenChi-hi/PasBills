@@ -330,8 +330,8 @@ export function TransactionListCard({
                         </p>
                         {/* From/To accounts */}
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {accountsMap[transaction.from]?.name || "Unknown"} →{" "}
-                          {accountsMap[transaction.to]?.name || "Unknown"}
+                          {accountsMap[transaction.from]?.name || "Outside Tx"} →{" "}
+                          {accountsMap[transaction.to]?.name || "Outside Tx"}
                         </p>
                         {/* Date */}
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
