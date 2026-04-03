@@ -9,6 +9,8 @@ import { LoansCard } from "./home/LoansCard";
 import { TangibleAssetsCard } from "./home/TangibleAssetsCard";
 import { CashFlowDynamicsCard } from "./home/CashFlowDynamicsCard";
 import { CurrencySwitcher } from "./home/CurrencySwitcher";
+import { ResetDataButton } from "./home/ResetDataButton";
+import { DownloadTransactionsButton } from "./home/DownloadTransactionsButton";
 import { BottomNav } from "./home/BottomNav";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
@@ -92,8 +94,10 @@ export default function Home() {
         </div>
 
         {/* Currency Switcher */}
-        <div className="mt-8 flex justify-">
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
           <CurrencySwitcher />
+          <ResetDataButton />
+          <DownloadTransactionsButton />
         </div>
       </main>
 

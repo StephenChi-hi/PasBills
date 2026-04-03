@@ -821,3 +821,77 @@ DROP TRIGGER IF EXISTS trg_update_loan_on_payment_insert ON transactions;
 CREATE TRIGGER trg_update_loan_on_payment_insert
   AFTER INSERT ON transactions
   FOR EACH ROW EXECUTE FUNCTION update_loan_on_payment();
+
+
+-- ============================================================================================================
+-- RESET BUTTON: User Data Clearance Function
+-- ============================================================================================================
+-- Purpose: Allow authenticated users to clear all their financial data on demand
+-- This is a "reset" function - keeps auth intact so no re-login needed
+-- Clears: transactions, loans, accounts, businesses, categories, balances, cash flow
+-- Preserves: Authentication, user account, system categories
+-- Usage: SELECT clear_my_data();
+
+CREATE OR REPLACE FUNCTION clear_my_data()
+RETURNS TABLE (status TEXT, message TEXT) AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_transaction_count INT := 0;
+  v_loan_count INT := 0;
+  v_account_count INT := 0;
+  v_business_count INT := 0;
+BEGIN
+  
+  -- Verify user is authenticated
+  IF v_user_id IS NULL THEN
+    RETURN QUERY SELECT 'ERROR'::TEXT, 'User not authenticated'::TEXT;
+    RETURN;
+  END IF;
+
+  BEGIN
+    -- Delete transactions
+    DELETE FROM transactions WHERE user_id = v_user_id;
+    GET DIAGNOSTICS v_transaction_count = ROW_COUNT;
+    
+    -- Delete loans
+    DELETE FROM loans WHERE user_id = v_user_id;
+    GET DIAGNOSTICS v_loan_count = ROW_COUNT;
+    
+    -- Delete summaries
+    DELETE FROM cash_flow_summary WHERE user_id = v_user_id;
+    DELETE FROM balance WHERE user_id = v_user_id;
+    
+    -- Delete custom categories (keep system categories)
+    DELETE FROM categories WHERE user_id = v_user_id AND is_system = false;
+    
+    -- Delete businesses
+    DELETE FROM businesses WHERE user_id = v_user_id;
+    GET DIAGNOSTICS v_business_count = ROW_COUNT;
+    
+    -- Delete accounts
+    DELETE FROM accounts WHERE user_id = v_user_id;
+    GET DIAGNOSTICS v_account_count = ROW_COUNT;
+    
+    RETURN QUERY SELECT 'SUCCESS'::TEXT, 
+      format('Data reset complete: %s transactions, %s loans, %s accounts, %s businesses deleted. Auth preserved.', 
+             v_transaction_count, v_loan_count, v_account_count, v_business_count)::TEXT;
+    
+  EXCEPTION WHEN OTHERS THEN
+    RETURN QUERY SELECT 'ERROR'::TEXT, format('Reset failed: %s', SQLERRM)::TEXT;
+  END;
+
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- Grant User Execution Permission
+-- ============================================
+GRANT EXECUTE ON FUNCTION clear_my_data() TO authenticated;
+
+
+
+
+
+
+
+
