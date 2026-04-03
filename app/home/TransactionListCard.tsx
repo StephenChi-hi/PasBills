@@ -246,7 +246,7 @@ export function TransactionListCard({
   const showingMore = displayCount > 10;
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 flex flex-col">
+    <div className="rounded-lg border border-zinc-200 h-screen overflow-y-auto   bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 flex flex-col">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">
           Recent Transactions
