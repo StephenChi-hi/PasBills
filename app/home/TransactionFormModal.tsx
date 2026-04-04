@@ -188,16 +188,18 @@ export function TransactionFormModal({
     }
   };
 
-  const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const input = e.target.value;
-
+    
     // Remove all non-digits except decimal point, then ensure only one decimal
     const cleanedInput = input
       .replace(/[^0-9.]/g, "")
       .replace(/(\.)(?=.*\.)/g, "");
-
+    
     setAmountString(cleanedInput);
-
+    
     const parsedValue = parseFloat(cleanedInput) || 0;
     setFormData((prev) => ({
       ...prev,
@@ -211,10 +213,8 @@ export function TransactionFormModal({
     >,
   ) => {
     const { name, type } = e.target as any;
-    const value = (
-      e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    ).value;
-
+    const value = (e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
+    
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -223,8 +223,8 @@ export function TransactionFormModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 sm:p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl h-screen sm:max-w-md w-full sm:max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">

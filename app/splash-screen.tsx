@@ -1,17 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export function SplashScreen() {
   const [isVisible, setIsVisible] = useState(true);
+  const { isLoading } = useAuth();
 
   useEffect(() => {
-    // Hide splash screen after page is hydrated and ready
-    const timer = setTimeout(() => {
+    // Hide splash screen once auth is done loading
+    if (!isLoading) {
       setIsVisible(false);
-    }, 500);
+      return;
+    }
+  }, [isLoading]);
 
-    return () => clearTimeout(timer);
+  // Safety timeout - hide splash after 3 seconds regardless
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      console.log("Splash screen timeout - hiding anyway");
+      setIsVisible(false);
+    }, 3000);
+
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   if (!isVisible) return null;

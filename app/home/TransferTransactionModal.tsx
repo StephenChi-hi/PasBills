@@ -27,6 +27,7 @@ export function TransferTransactionModal({
     date: new Date().toISOString().split("T")[0],
   });
 
+  const [amountString, setAmountString] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -70,6 +71,31 @@ export function TransferTransactionModal({
 
     fetchData();
   }, []);
+
+  const formatAmountDisplay = (str: string): string => {
+    if (!str) return "";
+    // Split by decimal point
+    const parts = str.split(".");
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const decimalPart = parts[1] || "";
+    return decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+  };
+
+  const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+
+    // Remove all non-digits except decimal point, then ensure only one decimal
+    const cleanedInput = input
+      .replace(/[^0-9.]/g, "")
+      .replace(/(\.)(?=.*\.)/g, "");
+
+    setAmountString(cleanedInput);
+    const parsedValue = parseFloat(cleanedInput) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      amount: parsedValue,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,26 +141,46 @@ export function TransferTransactionModal({
         amountInNGN = valueInUSD * ngnRate;
       }
 
-      // Create transfer transaction
-      const { error } = await supabase.from("transactions").insert([
-        {
-          user_id: user.id,
-          type: "transfer",
-          description: formData.description || "Transfer",
-          amount: amountInNGN,
-          category_id: null,
-          from_account_id: formData.fromAccount,
-          to_account_id: formData.toAccount,
-          business_id: null,
-          is_business: false,
-          tangible_assets: false,
-          transaction_date: formData.date,
-        },
-      ]);
+      // Fetch current balances
+      const { data: fromAccountData, error: fetchFromError } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", formData.fromAccount)
+        .single();
 
-      if (error) {
-        console.error("Error creating transfer:", error);
-        setError("Failed to create transfer. Please try again.");
+      const { data: toAccountData, error: fetchToError } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", formData.toAccount)
+        .single();
+
+      if (fetchFromError || fetchToError) {
+        console.error(
+          "Error fetching account balances:",
+          fetchFromError || fetchToError,
+        );
+        setError("Failed to retrieve account balances. Please try again.");
+        return;
+      }
+
+      // Update from account (deduct)
+      const { error: updateFromError } = await supabase
+        .from("accounts")
+        .update({ balance: (fromAccountData.balance || 0) - amountInNGN })
+        .eq("id", formData.fromAccount);
+
+      // Update to account (add)
+      const { error: updateToError } = await supabase
+        .from("accounts")
+        .update({ balance: (toAccountData.balance || 0) + amountInNGN })
+        .eq("id", formData.toAccount);
+
+      if (updateFromError || updateToError) {
+        console.error(
+          "Error updating balances:",
+          updateFromError || updateToError,
+        );
+        setError("Failed to transfer. Please try again.");
         return;
       }
 
@@ -152,6 +198,7 @@ export function TransferTransactionModal({
         description: "",
         date: new Date().toISOString().split("T")[0],
       });
+      setAmountString("");
       onClose();
     } catch (err) {
       console.error("Error:", err);
@@ -251,14 +298,13 @@ export function TransferTransactionModal({
               Amount ({currencySymbol})
             </label>
             <input
-              type="number"
+              type="text"
               name="amount"
-              value={formData.amount}
-              onChange={handleChange}
+              value={formatAmountDisplay(amountString)}
+              onChange={handleAmountInput}
               placeholder="0.00"
-              step="0.01"
-              min="0"
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              inputMode="decimal"
+              className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>

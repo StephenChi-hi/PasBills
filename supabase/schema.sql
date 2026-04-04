@@ -155,20 +155,28 @@ CREATE POLICY "Users can view their own balance"
 -- ============================================
 -- Trigger Function to Update User Balance
 -- ============================================
+-- liquid_balance = sum of LIQUID accounts only (cash, checking, crypto)
+-- Excludes: investment, savings, business
+-- net_worth = liquid_balance + sum of tangible asset transactions + non-liquid account balances
 CREATE OR REPLACE FUNCTION update_user_balance()
 RETURNS TRIGGER AS $$
 BEGIN
-
-
   -- Upsert into balance table:
-  -- liquid_balance = sum of all account balances
-  -- net_worth = liquid_balance + sum of tangible asset transactions
+  -- liquid_balance = sum of liquid account balances ONLY (exclude investment, savings, business)
+  -- net_worth = liquid_balance + sum of all other accounts + sum of tangible asset transactions
   INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
   VALUES (
     COALESCE(NEW.user_id, OLD.user_id),
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true),
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true) +
-    COALESCE((SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND tangible_assets = true), 0),
+    -- Liquid balance: only cash, checking, crypto
+    (SELECT COALESCE(SUM(balance), 0) FROM accounts 
+     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) 
+     AND is_active = true 
+     AND type IN ('cash', 'checking', 'crypto')),
+    -- Net worth: all active accounts + tangible assets
+    (SELECT COALESCE(SUM(balance), 0) FROM accounts 
+     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true) +
+    COALESCE((SELECT COALESCE(SUM(amount), 0) FROM transactions 
+     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND tangible_assets = true), 0),
     NOW()
   )
   ON CONFLICT (user_id) DO UPDATE
@@ -216,7 +224,9 @@ CREATE POLICY "Users can delete their own balance"
 INSERT INTO balance (user_id, liquid_balance, net_worth, created_at, updated_at)
 SELECT
   COALESCE(a.user_id, t.user_id) AS user_id,
-  COALESCE(SUM(a.balance), 0) AS liquid_balance,
+  -- Liquid balance: only cash, checking, crypto (exclude investment, savings, business)
+  COALESCE(SUM(CASE WHEN a.type IN ('cash', 'checking', 'crypto') THEN a.balance ELSE 0 END), 0) AS liquid_balance,
+  -- Net worth: all account balances + tangible asset transactions
   COALESCE(SUM(a.balance), 0) + COALESCE((SELECT SUM(amount) FROM transactions WHERE tangible_assets = true AND user_id = COALESCE(a.user_id, t.user_id)), 0) AS net_worth,
   NOW(),
   NOW()
@@ -930,6 +940,60 @@ CREATE TRIGGER trg_update_tangible_assets_net_worth_insert
   AFTER INSERT ON transactions
   FOR EACH ROW EXECUTE FUNCTION update_tangible_assets_net_worth();
 
+
+-- ============================================================================================================
+-- DATABASE MIGRATION: Update Liquidity Balance Calculation
+-- ============================================================================================================
+-- Purpose: Recalculate liquid_balance for all existing users to exclude non-liquid accounts
+-- This excludes: investment, savings, business account types
+-- Includes only: cash, checking, crypto account types
+-- Execution: Paste this entire block into Supabase SQL Editor and execute
+-- ============================================================================================================
+
+-- Step 1: Initialize balance records for users who don't have one yet
+INSERT INTO balance (user_id, liquid_balance, net_worth, created_at, updated_at)
+SELECT
+  u.user_id,
+  -- Liquid balance: only cash, checking, crypto (exclude investment, savings, business)
+  COALESCE((SELECT SUM(a.balance) FROM accounts a WHERE a.user_id = u.user_id AND a.is_active = true AND a.type IN ('cash', 'checking', 'crypto')), 0) AS liquid_balance,
+  -- Net worth: all account balances + tangible asset transactions
+  COALESCE((SELECT SUM(a.balance) FROM accounts a WHERE a.user_id = u.user_id AND a.is_active = true), 0) +
+  COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.user_id = u.user_id AND t.tangible_assets = true), 0) AS net_worth,
+  NOW(),
+  NOW()
+FROM (
+  SELECT DISTINCT a.user_id
+  FROM accounts a
+  WHERE a.user_id NOT IN (SELECT user_id FROM balance WHERE user_id IS NOT NULL)
+  UNION
+  SELECT DISTINCT t.user_id
+  FROM transactions t
+  WHERE t.tangible_assets = true AND t.user_id NOT IN (SELECT user_id FROM balance WHERE user_id IS NOT NULL)
+) u
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Step 2: Update all existing balance records with new liquid_balance calculation
+UPDATE balance b
+SET liquid_balance = (
+  SELECT COALESCE(SUM(a.balance), 0)
+  FROM accounts a
+  WHERE a.user_id = b.user_id
+    AND a.is_active = true
+    AND a.type IN ('cash', 'checking', 'crypto')
+),
+updated_at = NOW()
+WHERE b.user_id IS NOT NULL;
+
+-- Step 3: Verify the update - check a sample of users
+-- Uncomment to run verification query
+-- SELECT 
+--   u.user_id,
+--   (SELECT SUM(balance) FROM accounts WHERE user_id = u.user_id AND is_active = true) as total_balance,
+--   (SELECT COALESCE(SUM(balance), 0) FROM accounts WHERE user_id = u.user_id AND is_active = true AND type IN ('cash', 'checking', 'crypto')) as liquid_balance,
+--   u.liquid_balance as updated_liquid_balance,
+--   u.net_worth
+-- FROM balance u
+-- LIMIT 10;
 
 
 

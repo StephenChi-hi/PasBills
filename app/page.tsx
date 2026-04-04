@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import { BalanceCard } from "./home/BalanceCard";
 import { CashFlowCard } from "./home/CashFlowCard";
 import { TransactionListCard } from "./home/TransactionListCard";
@@ -9,6 +10,7 @@ import { BusinessesCard } from "./home/BusinessesCard";
 import { LoansCard } from "./home/LoansCard";
 import { TangibleAssetsCard } from "./home/TangibleAssetsCard";
 import { CashFlowDynamicsCard } from "./home/CashFlowDynamicsCard";
+import { CashFlowChart } from "./home/CashFlowChart";
 import { CurrencySwitcher } from "./home/CurrencySwitcher";
 import { ResetDataButton } from "./home/ResetDataButton";
 import { DownloadTransactionsButton } from "./home/DownloadTransactionsButton";
@@ -19,6 +21,12 @@ import { CalculateTaxButton } from "./home/CalculateTaxButton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { HandCoins, Loader2 } from "lucide-react";
+
+const cardTransition = (index: number) => ({
+  delay: index * 0.1,
+  duration: 0.5,
+  type: "tween" as const,
+});
 
 export default function Home() {
   const { user, signOut, isLoading } = useAuth();
@@ -80,7 +88,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50  dark:bg-gradient-to-br dark:from-zinc-950 dark:to-zinc-800">
+    <div className="min-h-screen bg-zinc-50  dark:bg-gradient-to-br dark:from-zinc-950 dark:to-green-900">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with User Info and Mobile Menu Button */}
         <div className="mb-8 flex w-full">
@@ -118,41 +126,100 @@ export default function Home() {
           {/* Left Column - Takes 2 columns on large screens */}
           <div className="space-y-6 lg:col-span-2">
             {/* Balance Card */}
-            <BalanceCard liquidBalance={0} netWorth={0} />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={cardTransition(0)}
+            >
+              <BalanceCard liquidBalance={0} netWorth={0} />
+            </motion.div>
 
             {/* Cash Flow Card */}
-            <CashFlowCard inflow={0} outflow={0} />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={cardTransition(1)}
+            >
+              <CashFlowCard inflow={0} outflow={0} />
+            </motion.div>
 
             {/* Transaction List Card */}
-            <TransactionListCard />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={cardTransition(2)}
+            >
+              <TransactionListCard />
+            </motion.div>
           </div>
 
           {/* Right Column - Takes 1 column on large screens */}
           <div className="space-y-6">
             {/* Accounts Card */}
             <div ref={accountsRef}>
-              <AccountsCard />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={cardTransition(3)}
+              >
+                <AccountsCard />
+              </motion.div>
             </div>
 
             {/* Businesses Card */}
             <div ref={businessesRef}>
-              <BusinessesCard />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={cardTransition(4)}
+              >
+                <BusinessesCard />
+              </motion.div>
             </div>
 
             {/* Loans Card */}
           </div>
         </div>
+        {/* Cash Flow Chart - Full Width */}
+        <div className="mt-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={cardTransition(7)}
+          >
+            <CashFlowChart />
+          </motion.div>
+        </div>
         <div className=" my-8" ref={loansRef}>
-          <LoansCard />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={cardTransition(5)}
+          >
+            <LoansCard />
+          </motion.div>
         </div>
 
         {/* Tangible Assets Card */}
         <div className="my-8" ref={tangibleAssetsRef}>
-          <TangibleAssetsCard />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={cardTransition(6)}
+          >
+            <TangibleAssetsCard />
+          </motion.div>
         </div>
+
         {/* Cash Flow Dynamics Card - Full Width */}
         <div className="mt-8" ref={cashFlowDynamicsRef}>
-          <CashFlowDynamicsCard />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={cardTransition(8)}
+          >
+            <CashFlowDynamicsCard />
+          </motion.div>
         </div>
       </main>
 

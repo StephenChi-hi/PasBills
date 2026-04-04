@@ -75,7 +75,7 @@ export default function SignUp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 to-black flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-black -900 to-green-950 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-6xl">
         {/* Two Column Layout */}
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -168,7 +168,7 @@ export default function SignUp() {
                 <button
                   type="submit"
                   disabled={isSubmitting || success}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-green-700 hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <UserPlus className="h-4 w-4" />
                   {isSubmitting

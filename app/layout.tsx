@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { CurrencyProvider } from "@/lib/currency/currency-context";
+import { ThemeProvider } from "@/lib/theme/theme-context";
 import { PWAClient } from "./pwa-client";
 import { SplashScreen } from "./splash-screen";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
 const geistMono = Geist_Mono({
@@ -79,14 +79,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${poppins.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <PWAClient />
-        <SplashScreen />
-        <AuthProvider>
-          <CurrencyProvider>{children}</CurrencyProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <PWAClient />
+          <AuthProvider>
+            <SplashScreen />
+            <CurrencyProvider>{children}</CurrencyProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
