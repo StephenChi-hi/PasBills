@@ -86,7 +86,7 @@ export function MobileMenu({
               <div className="relative h-full flex flex-col p-6 md:overflow-y-auto md:overflow-x-hidden">
                 {/* Close Button */}
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-sm  text-zinc-900 dark:text-zinc-50">
                     Menu
                   </h2>
                   <button

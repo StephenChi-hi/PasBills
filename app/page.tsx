@@ -80,7 +80,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-zinc-50  dark:bg-gradient-to-br dark:from-zinc-950 dark:to-zinc-800">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with User Info and Mobile Menu Button */}
         <div className="mb-8 flex w-full">
