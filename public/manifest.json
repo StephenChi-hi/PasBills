@@ -1,14 +1,14 @@
 {
   "name": "PasBills - Financial Dashboard",
   "short_name": "PasBills",
-  "description": "Manage your personal and business finances",
+  "description": "Manage your personal and business finances with ease",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "any",
-  "theme_color": "#000000",
-  "background_color": "#000000",
-  "categories": ["finance", "business"],
+  "orientation": "portrait-primary",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "categories": ["finance", "business", "productivity"],
   "screenshots": [
     {
       "src": "/images/screenshot-540x720.png",
@@ -25,18 +25,32 @@
   ],
   "icons": [
     {
-      "purpose": "maskable",
-      "sizes": "512x512",
       "src": "/images/icon512_maskable.png",
-      "type": "image/png"
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
-      "purpose": "any",
-      "sizes": "512x512",
       "src": "/images/icon512_rounded.png",
-      "type": "image/png"
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  
+  "shortcuts": [
+    {
+      "name": "Add Transaction",
+      "short_name": "Add",
+      "description": "Quick add a new transaction",
+      "url": "/?mode=add",
+      "icons": [
+        {
+          "src": "/images/icon512_rounded.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "prefer_related_applications": false
 }

@@ -174,8 +174,8 @@ export function TransferTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50  sm:p-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl sm:max-w-md w-full h-screen sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-2">
@@ -210,7 +210,7 @@ export function TransferTransactionModal({
               name="fromAccount"
               value={formData.fromAccount}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 h-12 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
               required
             >
@@ -232,7 +232,7 @@ export function TransferTransactionModal({
               name="toAccount"
               value={formData.toAccount}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 h-12 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
               required
             >

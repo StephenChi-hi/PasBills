@@ -71,19 +71,19 @@ export function MobileMenu({
               className="fixed inset-0 bg-black/40 z-40"
             />
 
-            {/* Slide-in Panel from Right (Mobile) / Modal (Desktop) */}
+            {/* Slide-in Panel from Right (Mobile) / Sidebar (Desktop) */}
             <motion.div
               initial={{ x: "100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="fixed right-0 bottom-0 h-screen w-full z-50 md:w-96 md:h-screen md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl"
+              className="fixed right-0 top-0 h-screen w-full z-50 md:w-96 md:rounded-none"
             >
               {/* Glass Morphism Background */}
-              <div className="absolute inset-0 sm:right-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-l border-white/20 dark:border-zinc-700/20 md:border md:border-white/30 dark:md:border-zinc-700/30 md:rounded-2xl" />
+              <div className="absolute inset-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-l border-white/20 dark:border-zinc-700/20" />
 
               {/* Content */}
-              <div className="relative h-full  md:overflow-y-auto md:overflow-x-hidden flex flex-col p-6">
+              <div className="relative h-full flex flex-col p-6 md:overflow-y-auto md:overflow-x-hidden">
                 {/* Close Button */}
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
@@ -100,30 +100,30 @@ export function MobileMenu({
 
                 {/* Tools Section */}
                 {toolsComponents && (
-                  <div className="space-y-3 mb-6 md:max-h-48 ">
-                    <div className="flex flex-col gap-2 w-full">
+                  <div className="space-y-3 mb-6">
+                    <div className="flex flex-col gap-2 w-full md:max-w-xs">
                       {CurrencySwitcher && (
-                        <div className="flex-1 min-w-[calc(50%-0.375rem)]">
+                        <div className="w-full">
                           <CurrencySwitcher />
                         </div>
                       )}
                       {DownloadTransactionsButton && (
-                        <div className="flex-1 min-w-[calc(50%-0.375rem)]">
+                        <div className="w-full">
                           <DownloadTransactionsButton />
                         </div>
                       )}
                       {AITimelineButton && (
-                        <div className="flex-1 min-w-[calc(50%-0.375rem)]">
+                        <div className="w-full">
                           <AITimelineButton />
                         </div>
                       )}
                       {CalculateTaxButton && (
-                        <div className="flex-1 min-w-[calc(50%-0.375rem)]">
+                        <div className="w-full">
                           <CalculateTaxButton />
                         </div>
                       )}
                       {ResetDataButton && (
-                        <div className="flex-1 min-w-[calc(50%-0.375rem)]">
+                        <div className="w-full">
                           <ResetDataButton />
                         </div>
                       )}
@@ -132,7 +132,7 @@ export function MobileMenu({
                 )}
 
                 {/* Navigation Buttons */}
-                <nav className="space-y-3 flex-1 md:max-h-96">
+                <nav className="space-y-3 flex-1">
                   {sections.map((section) => (
                     <motion.button
                       key={section.id}

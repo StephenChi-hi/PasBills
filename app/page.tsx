@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { BalanceCard } from "./home/BalanceCard";
 import { CashFlowCard } from "./home/CashFlowCard";
 import { TransactionListCard } from "./home/TransactionListCard";
@@ -18,11 +18,18 @@ import { AITimelineButton } from "./home/AITimelineButton";
 import { CalculateTaxButton } from "./home/CalculateTaxButton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
-import { HandCoins } from "lucide-react";
+import { HandCoins, Loader2 } from "lucide-react";
 
 export default function Home() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
+
+  // Protect the route - redirect to signin if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/auth/signin");
+    }
+  }, [user, isLoading, router]);
 
   // Refs for each section
   const accountsRef = useRef<HTMLDivElement>(null);
@@ -54,6 +61,23 @@ export default function Home() {
       targetRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+
+  // Show loading state while auth is being checked
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect happens in useEffect, but render nothing while redirecting
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
