@@ -45,6 +45,8 @@ export function EditTransactionModal({
         : transaction.date,
   });
 
+  const [amountString, setAmountString] = useState(transaction.amount.toString());
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -96,6 +98,15 @@ export function EditTransactionModal({
     fetchData();
   }, []);
 
+  const formatAmountDisplay = (str: string): string => {
+    if (!str) return "";
+    // Split by decimal point
+    const parts = str.split(".");
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const decimalPart = parts[1] || "";
+    return decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+  };
+
   const handleBusinessChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const businessId = e.target.value;
     setFormData((prev) => ({
@@ -105,31 +116,37 @@ export function EditTransactionModal({
     }));
   };
 
+  const handleAmountInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = e.target.value;
+    
+    // Remove all non-digits except decimal point, then ensure only one decimal
+    const cleanedInput = input
+      .replace(/[^0-9.]/g, "")
+      .replace(/(\.)(?=.*\.)/g, "");
+    
+    setAmountString(cleanedInput);
+    
+    const parsedValue = parseFloat(cleanedInput) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      amount: parsedValue,
+    }));
+  };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => {
-    const { name, value } = e.target;
-    if (name === "amount") {
-      // Remove all non-digit and non-dot characters
-      let numericValue = value.replace(/[^0-9.]/g, "");
-      // Ensure only one decimal point
-      const parts = numericValue.split(".");
-      if (parts.length > 2) {
-        numericValue = parts[0] + "." + parts.slice(1).join("");
-      }
-      const parsedValue = parseFloat(numericValue) || 0;
-      setFormData((prev) => ({
-        ...prev,
-        [name]: parsedValue,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: name === "amount" ? parseFloat(value) || 0 : value,
-      }));
-    }
+    const { name } = e.target;
+    const value = (e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
+    
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -293,12 +310,10 @@ export function EditTransactionModal({
               <input
                 type="text"
                 name="amount"
-                value={formData.amount === 0 ? "" : formData.amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                })}
-                onChange={handleChange}
+                value={formatAmountDisplay(amountString)}
+                onChange={handleAmountInput}
                 placeholder="0.00"
+                inputMode="decimal"
                 className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />

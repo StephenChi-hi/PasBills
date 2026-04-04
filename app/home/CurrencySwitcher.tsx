@@ -20,9 +20,9 @@ export function CurrencySwitcher() {
       {/* Dropdown Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+        className="w-full inline-flex justify-center items-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-zinc-100 to-zinc-50 dark:from-zinc-800 dark:to-zinc-900 hover:from-zinc-200 hover:to-zinc-100 dark:hover:from-zinc-700 dark:hover:to-zinc-800 text-zinc-900 dark:text-zinc-50 font-medium transition-all border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md"
       >
-        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+        <span className="font-semibold text-zinc-900 dark:text-zinc-50">
           {currentCurrencyData?.symbol} {currentCurrency}
         </span>
         <ChevronDown
@@ -33,7 +33,7 @@ export function CurrencySwitcher() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute bottom-[120%] mt-2 left-0 w-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-50">
+        <div className="absolute top-[100%] mt-2 left-0 w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-50">
           <div className="max-h-96 overflow-y-auto">
             {/* MAJOR CURRENCIES SECTION */}
             <div className="border-b border-zinc-200 dark:border-zinc-700 p-3">

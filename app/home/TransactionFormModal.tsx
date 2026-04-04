@@ -38,6 +38,8 @@ export function TransactionFormModal({
     tangibleAssets: false,
   });
 
+  const [amountString, setAmountString] = useState("");
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,15 @@ export function TransactionFormModal({
 
     fetchData();
   }, []);
+
+  const formatAmountDisplay = (str: string): string => {
+    if (!str) return "";
+    // Split by decimal point
+    const parts = str.split(".");
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const decimalPart = parts[1] || "";
+    return decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+  };
 
   const handleBusinessChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const businessId = e.target.value;
@@ -168,6 +179,7 @@ export function TransactionFormModal({
         date: new Date().toISOString().split("T")[0],
         tangibleAssets: false,
       });
+      setAmountString("");
       onClose();
     } catch (err) {
       console.error("Error:", err);
@@ -176,32 +188,38 @@ export function TransactionFormModal({
     }
   };
 
+  const handleAmountInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = e.target.value;
+    
+    // Remove all non-digits except decimal point, then ensure only one decimal
+    const cleanedInput = input
+      .replace(/[^0-9.]/g, "")
+      .replace(/(\.)(?=.*\.)/g, "");
+    
+    setAmountString(cleanedInput);
+    
+    const parsedValue = parseFloat(cleanedInput) || 0;
+    setFormData((prev) => ({
+      ...prev,
+      amount: parsedValue,
+    }));
+  };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => {
-    const { name, value, type } = e.target as any;
-    if (name === "amount") {
-      // Remove all non-digit and non-dot characters
-      let numericValue = value.replace(/[^0-9.]/g, "");
-      // Ensure only one decimal point
-      const parts = numericValue.split(".");
-      if (parts.length > 2) {
-        numericValue = parts[0] + "." + parts.slice(1).join("");
-      }
-      const parsedValue = parseFloat(numericValue) || 0;
-      setFormData((prev) => ({
-        ...prev,
-        [name]: parsedValue,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]:
-          type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-      }));
-    }
+    const { name, type } = e.target as any;
+    const value = (e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
+    
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
   };
 
   return (
@@ -246,12 +264,10 @@ export function TransactionFormModal({
             <input
               type="text"
               name="amount"
-              value={formData.amount === 0 ? "" : formData.amount.toLocaleString(undefined, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 2,
-              })}
-              onChange={handleChange}
+              value={formatAmountDisplay(amountString)}
+              onChange={handleAmountInput}
               placeholder="0.00"
+              inputMode="decimal"
               className="w-full h-10 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />

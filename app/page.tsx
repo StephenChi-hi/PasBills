@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { BalanceCard } from "./home/BalanceCard";
 import { CashFlowCard } from "./home/CashFlowCard";
 import { TransactionListCard } from "./home/TransactionListCard";
@@ -12,15 +13,23 @@ import { CurrencySwitcher } from "./home/CurrencySwitcher";
 import { ResetDataButton } from "./home/ResetDataButton";
 import { DownloadTransactionsButton } from "./home/DownloadTransactionsButton";
 import { BottomNav } from "./home/BottomNav";
+import { MobileMenu } from "./home/MobileMenu";
 import { AITimelineButton } from "./home/AITimelineButton";
 import { CalculateTaxButton } from "./home/CalculateTaxButton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
-import { HandCoins, LogOut } from "lucide-react";
+import { HandCoins } from "lucide-react";
 
 export default function Home() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+
+  // Refs for each section
+  const accountsRef = useRef<HTMLDivElement>(null);
+  const businessesRef = useRef<HTMLDivElement>(null);
+  const loansRef = useRef<HTMLDivElement>(null);
+  const tangibleAssetsRef = useRef<HTMLDivElement>(null);
+  const cashFlowDynamicsRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     try {
@@ -31,15 +40,45 @@ export default function Home() {
     }
   };
 
+  const handleNavigate = (section: string) => {
+    const refs: Record<string, React.RefObject<HTMLDivElement | null>> = {
+      accounts: accountsRef,
+      businesses: businessesRef,
+      loans: loansRef,
+      "tangible-assets": tangibleAssetsRef,
+      "cash-flow-dynamics": cashFlowDynamicsRef,
+    };
+
+    const targetRef = refs[section];
+    if (targetRef?.current) {
+      targetRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header with User Info */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Dashboard
-            </h1>
+        {/* Header with User Info and Mobile Menu Button */}
+        <div className="mb-8 flex w-full">
+          <div className="flex w-full flex-col">
+            <div className="flex items-start justify-between ">
+              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+                Dashboard
+              </h1>
+              {/* Mobile Menu Button */}
+              <MobileMenu
+                onNavigate={handleNavigate}
+                onLogout={handleLogout}
+                toolsComponents={{
+                  CurrencySwitcher,
+                  DownloadTransactionsButton,
+                  AITimelineButton,
+                  CalculateTaxButton,
+                  ResetDataButton,
+                }}
+              />
+            </div>
+
             <p className="mt-2 text-zinc-600 dark:text-zinc-400">
               Welcome back, Here's your financial overview.
             </p>
@@ -67,42 +106,29 @@ export default function Home() {
           {/* Right Column - Takes 1 column on large screens */}
           <div className="space-y-6">
             {/* Accounts Card */}
-            <AccountsCard />
+            <div ref={accountsRef}>
+              <AccountsCard />
+            </div>
 
             {/* Businesses Card */}
-            <BusinessesCard />
+            <div ref={businessesRef}>
+              <BusinessesCard />
+            </div>
 
             {/* Loans Card */}
           </div>
         </div>
-        <div className=" my-8">
+        <div className=" my-8" ref={loansRef}>
           <LoansCard />
         </div>
 
         {/* Tangible Assets Card */}
-        <div className="my-8">
+        <div className="my-8" ref={tangibleAssetsRef}>
           <TangibleAssetsCard />
         </div>
         {/* Cash Flow Dynamics Card - Full Width */}
-        <div className="mt-8">
+        <div className="mt-8" ref={cashFlowDynamicsRef}>
           <CashFlowDynamicsCard />
-        </div>
-
-        {/* other tools  */}
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <CurrencySwitcher />
-
-          <DownloadTransactionsButton />
-          <AITimelineButton />
-          <CalculateTaxButton />
-          <ResetDataButton />
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
         </div>
       </main>
 
