@@ -157,32 +157,36 @@ CREATE POLICY "Users can view their own balance"
 -- ============================================
 -- liquid_balance = sum of LIQUID accounts only (cash, checking, crypto)
 -- Excludes: investment, savings, business
--- net_worth = liquid_balance + sum of tangible asset transactions + non-liquid account balances
-CREATE OR REPLACE FUNCTION update_user_balance()
-RETURNS TRIGGER AS $$
+-- net_worth = all active account balances + tangible asset transactions
+CREATE OR REPLACE FUNCTION recalculate_user_balance(p_user_id UUID)
+RETURNS void AS $$
 BEGIN
-  -- Upsert into balance table:
-  -- liquid_balance = sum of liquid account balances ONLY (exclude investment, savings, business)
-  -- net_worth = liquid_balance + sum of all other accounts + sum of tangible asset transactions
   INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
   VALUES (
-    COALESCE(NEW.user_id, OLD.user_id),
-    -- Liquid balance: only cash, checking, crypto
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts 
-     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) 
+    p_user_id,
+    -- Liquid balance: ONLY cash, checking, crypto (STRICTLY EXCLUDE all others)
+    COALESCE((SELECT SUM(balance) FROM accounts 
+     WHERE user_id = p_user_id 
      AND is_active = true 
-     AND type IN ('cash', 'checking', 'crypto')),
-    -- Net worth: all active accounts + tangible assets
-    (SELECT COALESCE(SUM(balance), 0) FROM accounts 
-     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND is_active = true) +
-    COALESCE((SELECT COALESCE(SUM(amount), 0) FROM transactions 
-     WHERE user_id = COALESCE(NEW.user_id, OLD.user_id) AND tangible_assets = true), 0),
+     AND type IN ('cash', 'checking', 'crypto')), 0),
+    -- Net worth: ALL active account types + tangible asset transactions
+    COALESCE((SELECT SUM(balance) FROM accounts 
+     WHERE user_id = p_user_id AND is_active = true), 0) +
+    COALESCE((SELECT SUM(amount) FROM transactions 
+     WHERE user_id = p_user_id AND tangible_assets = true), 0),
     NOW()
   )
   ON CONFLICT (user_id) DO UPDATE
     SET liquid_balance = EXCLUDED.liquid_balance,
         net_worth = EXCLUDED.net_worth,
         updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_user_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM recalculate_user_balance(COALESCE(NEW.user_id, OLD.user_id));
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -908,23 +912,18 @@ GRANT EXECUTE ON FUNCTION clear_my_data() TO authenticated;
 -- ============================================================================================================
 -- TANGIBLE ASSETS NET WORTH UPDATE TRIGGER
 -- ============================================================================================================
--- Purpose: Add tangible asset transactions to net_worth only (not liquid_balance)
+-- Purpose: Recalculate full balance when tangible assets change
 -- Logic:
---   If tangible_assets = true → Add amount to net_worth ONLY
+--   If tangible_assets = true → Recalculate full user balance (liquid + net_worth)
 --   Regular transactions (tangible_assets = false) → Handled by update_user_balance & update_account_balance triggers
 
 CREATE OR REPLACE FUNCTION update_tangible_assets_net_worth()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.tangible_assets THEN
-    -- Add tangible asset to net_worth only
-    INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
-    VALUES (NEW.user_id, 0, NEW.amount, NOW())
-    ON CONFLICT (user_id) DO UPDATE
-      SET net_worth = balance.net_worth + NEW.amount,
-          updated_at = NOW();
+  IF COALESCE(NEW.tangible_assets, OLD.tangible_assets) THEN
+    -- Recalculate full user balance when tangible assets change
+    PERFORM recalculate_user_balance(COALESCE(NEW.user_id, OLD.user_id));
   END IF;
-
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -938,6 +937,14 @@ DROP TRIGGER IF EXISTS trg_update_tangible_assets_net_worth_delete ON transactio
 
 CREATE TRIGGER trg_update_tangible_assets_net_worth_insert
   AFTER INSERT ON transactions
+  FOR EACH ROW EXECUTE FUNCTION update_tangible_assets_net_worth();
+
+CREATE TRIGGER trg_update_tangible_assets_net_worth_update
+  AFTER UPDATE ON transactions
+  FOR EACH ROW EXECUTE FUNCTION update_tangible_assets_net_worth();
+
+CREATE TRIGGER trg_update_tangible_assets_net_worth_delete
+  AFTER DELETE ON transactions
   FOR EACH ROW EXECUTE FUNCTION update_tangible_assets_net_worth();
 
 
@@ -995,9 +1002,102 @@ WHERE b.user_id IS NOT NULL;
 -- FROM balance u
 -- LIMIT 10;
 
+-- ============================================================================================================
+-- FIX: LIQUIDITY BALANCE CALCULATION - NEW APPROACH
+-- ============================================================================================================
+-- Issue: liqudity_balance was including all account types instead of just cash, checking, crypto
+-- Solution: Create a dedicated function that ONLY updates liquid_balance with strict filtering
+-- ============================================================================================================
 
+-- Drop and recreate the liquidity calculation function with STRICT filtering
+DROP FUNCTION IF EXISTS recalculate_user_balance(UUID) CASCADE;
 
+CREATE OR REPLACE FUNCTION recalculate_user_balance(p_user_id UUID)
+RETURNS void AS $$
+DECLARE
+  v_liquid_balance DECIMAL(15, 2);
+  v_net_worth DECIMAL(15, 2);
+BEGIN
+  -- Calculate ONLY liquid accounts: cash, checking, crypto STRICTLY
+  SELECT COALESCE(SUM(balance), 0) INTO v_liquid_balance
+  FROM accounts
+  WHERE user_id = p_user_id
+    AND is_active = true
+    AND type IN ('cash', 'checking', 'crypto')
+    AND type NOT IN ('investment', 'savings', 'business');
 
+  -- Calculate net worth: ALL active accounts + tangible assets
+  SELECT COALESCE(SUM(balance), 0) INTO v_net_worth
+  FROM accounts
+  WHERE user_id = p_user_id AND is_active = true;
+
+  -- Add tangible assets to net worth
+  v_net_worth := v_net_worth + COALESCE((
+    SELECT SUM(amount) FROM transactions
+    WHERE user_id = p_user_id AND tangible_assets = true
+  ), 0);
+
+  -- Upsert balance record
+  INSERT INTO balance (user_id, liquid_balance, net_worth, updated_at)
+  VALUES (p_user_id, v_liquid_balance, v_net_worth, NOW())
+  ON CONFLICT (user_id) DO UPDATE
+    SET liquid_balance = v_liquid_balance,
+        net_worth = v_net_worth,
+        updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+-- Recreate trigger that calls the fixed function
+CREATE OR REPLACE FUNCTION update_user_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM recalculate_user_balance(COALESCE(NEW.user_id, OLD.user_id));
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Make sure all triggers are attached to this function
+DROP TRIGGER IF EXISTS trg_update_user_balance_insert ON accounts;
+DROP TRIGGER IF EXISTS trg_update_user_balance_update ON accounts;
+DROP TRIGGER IF EXISTS trg_update_user_balance_delete ON accounts;
+
+CREATE TRIGGER trg_update_user_balance_insert
+  AFTER INSERT ON accounts
+  FOR EACH ROW EXECUTE FUNCTION update_user_balance();
+
+CREATE TRIGGER trg_update_user_balance_update
+  AFTER UPDATE ON accounts
+  FOR EACH ROW EXECUTE FUNCTION update_user_balance();
+
+CREATE TRIGGER trg_update_user_balance_delete
+  AFTER DELETE ON accounts
+  FOR EACH ROW EXECUTE FUNCTION update_user_balance();
+
+-- ============================================================================================================
+-- Fix all existing user balances with the corrected calculation
+-- ============================================================================================================
+DO $$
+DECLARE
+  v_user_id UUID;
+  v_count INT := 0;
+BEGIN
+  -- Get all unique user IDs
+  FOR v_user_id IN (
+    SELECT DISTINCT user_id FROM accounts 
+    UNION 
+    SELECT DISTINCT user_id FROM transactions 
+    UNION 
+    SELECT DISTINCT user_id FROM balance
+  )
+  LOOP
+    IF v_user_id IS NOT NULL THEN
+      PERFORM recalculate_user_balance(v_user_id);
+      v_count := v_count + 1;
+    END IF;
+  END LOOP;
+  
+  RAISE NOTICE 'Fixed liquidity balance for % users. Liquid balance now EXCLUDES investment, savings, business', v_count;
+END $$;
 
 
 

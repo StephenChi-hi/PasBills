@@ -19,16 +19,19 @@ export function PWAClient() {
     // Handle install prompt
     let deferredPrompt: any;
 
-    window.addEventListener("beforeinstallprompt", (event) => {
+    const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       deferredPrompt = event;
       console.log("Install prompt available");
-    });
+    };
 
-    window.addEventListener("appinstalled", () => {
+    const handleAppInstalled = () => {
       console.log("App installed");
       deferredPrompt = null;
-    });
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     // Set theme color on load and prevent white flash
     const prefersDark = window.matchMedia(
@@ -38,6 +41,15 @@ export function PWAClient() {
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", themeColor);
+
+    // Cleanup: Remove event listeners on unmount
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
   }, []);
 
   return null;
