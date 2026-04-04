@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ChartData {
@@ -40,6 +41,7 @@ const monthNames = [
 
 export function CashFlowChart() {
   const { user } = useAuth();
+  const { refetchTrigger } = useTransactionStore();
   const [data, setData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -111,7 +113,7 @@ export function CashFlowChart() {
     };
 
     fetchTransactions();
-  }, [user?.id, selectedMonth, selectedYear]);
+  }, [user?.id, selectedMonth, selectedYear, refetchTrigger]);
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) {
