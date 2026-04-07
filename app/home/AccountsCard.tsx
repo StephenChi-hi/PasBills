@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { useTransactionStore } from "@/lib/stores/transaction-store";
-import { createClient } from "@/lib/supabase/client";
 import { AccountModal, type SubAccount } from "./AccountModal";
 
 interface Account {
@@ -49,15 +49,15 @@ const mockSubAccounts: Record<string, SubAccount[]> = {
   ],
 };
 
-export function AccountsCard({ accounts = [] }: AccountsCardProps) {
+export function AccountsCard({
+  accounts: propAccounts = [],
+}: AccountsCardProps) {
   const [selectedAccountType, setSelectedAccountType] = useState<string | null>(
     null,
   );
-  const [accountsList, setAccountsList] = useState<Account[]>([]);
-  const [userId, setUserId] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   const { currentCurrency } = useCurrency();
-  const { refetchTrigger } = useTransactionStore();
+  const { triggerRefetch } = useTransactionStore();
 
   const accountTypes = [
     { key: "cash", label: "Cash", color: "red" },
@@ -68,54 +68,8 @@ export function AccountsCard({ accounts = [] }: AccountsCardProps) {
     { key: "crypto", label: "Crypto", color: "teal" },
   ];
 
-  useEffect(() => {
-    const getUser = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    getUser();
-  }, []);
-
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      if (!userId) return;
-
-      try {
-        setIsLoading(true);
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("accounts")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching accounts:", error);
-          return;
-        }
-
-        const formattedAccounts: Account[] = (data || []).map((acc: any) => ({
-          id: acc.id,
-          name: acc.name,
-          balance: acc.balance,
-          type: acc.type.charAt(0).toUpperCase() + acc.type.slice(1),
-          color: acc.type,
-          currency: acc.currency,
-        }));
-
-        setAccountsList(formattedAccounts);
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAccounts();
-  }, [userId, refetchTrigger]);
+  // Use accounts directly from props
+  const accountsList = propAccounts;
 
   const formatCurrency = (value: number, storedCurrency?: string) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -216,60 +170,14 @@ export function AccountsCard({ accounts = [] }: AccountsCardProps) {
     balance: number,
     type: string,
   ) => {
-    // Refetch accounts to get the newly added account with real UUID from database
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching accounts:", error);
-        return;
-      }
-
-      const formattedAccounts: Account[] = (data || []).map((acc: any) => ({
-        id: acc.id,
-        name: acc.name,
-        balance: acc.balance,
-        type: acc.type.charAt(0).toUpperCase() + acc.type.slice(1),
-        color: acc.type,
-        currency: acc.currency,
-      }));
-
-      setAccountsList(formattedAccounts);
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    console.log("Account added:", name);
+    triggerRefetch();
   };
 
   const handleUpdateAccount = async (accountId: string, newName: string) => {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("accounts")
-        .update({ name: newName })
-        .eq("id", accountId)
-        .eq("user_id", userId);
-
-      if (error) {
-        console.error("Error updating account:", error);
-        return false;
-      }
-
-      // Update local state
-      setAccountsList((prev) =>
-        prev.map((acc) =>
-          acc.id === accountId ? { ...acc, name: newName } : acc,
-        ),
-      );
-      return true;
-    } catch (error) {
-      console.error("Error:", error);
-      return false;
-    }
+    console.log("Account updated:", accountId, newName);
+    triggerRefetch();
+    return true;
   };
 
   // Get accounts for the selected type
@@ -291,61 +199,55 @@ export function AccountsCard({ accounts = [] }: AccountsCardProps) {
           Your Accounts
         </h3>
 
-        {isLoading ? (
-          <p className="mt-6 text-center text-sm text-zinc-500">
-            Loading accounts...
-          </p>
-        ) : (
-          <div className="mt-6 space-y-3">
-            {accountTypes.map(({ key, label, color }) => {
-              const typeBalance = getTypeBalance(key);
-              const colorClass = colorClasses[color];
-              const barGradient = barColorMap[color];
-              const percentage =
-                totalBalance > 0 ? (typeBalance / totalBalance) * 100 : 0;
+        <div className="mt-6 space-y-3">
+          {accountTypes.map(({ key, label, color }) => {
+            const typeBalance = getTypeBalance(key);
+            const colorClass = colorClasses[color];
+            const barGradient = barColorMap[color];
+            const percentage =
+              totalBalance > 0 ? (typeBalance / totalBalance) * 100 : 0;
 
-              return (
-                <div
-                  key={key}
-                  onClick={() => setSelectedAccountType(key)}
-                  className="space-y-1 cursor-pointer rounded-lg transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 p-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`rounded-full p-2 ${colorClass}`}>
-                        <div className="h-3 w-3 rounded-full bg-current" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                          {label}
-                        </p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {(accountsByType[key] || []).length} account
-                          {(accountsByType[key] || []).length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
+            return (
+              <div
+                key={key}
+                onClick={() => setSelectedAccountType(key)}
+                className="space-y-1 cursor-pointer rounded-lg transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 p-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`rounded-full p-2 ${colorClass}`}>
+                      <div className="h-3 w-3 rounded-full bg-current" />
                     </div>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatCurrency(
-                        typeBalance,
-                        accountsByType[key]?.[0]?.currency,
-                      )}
-                    </p>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {label}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {(accountsByType[key] || []).length} account
+                        {(accountsByType[key] || []).length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                    <div
-                      className={`bg-gradient-to-r ${barGradient} h-full rounded-full transition-all`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-                    {percentage.toFixed(1)}% of total
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {formatCurrency(
+                      typeBalance,
+                      accountsByType[key]?.[0]?.currency,
+                    )}
                   </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div
+                    className={`bg-gradient-to-r ${barGradient} h-full rounded-full transition-all`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
+                  {percentage.toFixed(1)}% of total
+                </p>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="mt-4 border-t border-zinc-200 dark:border-zinc-700 pt-4">
           <div className="flex items-center justify-between">
@@ -372,7 +274,7 @@ export function AccountsCard({ accounts = [] }: AccountsCardProps) {
             currency: acc.currency,
           }))}
           totalBalance={typeBalance}
-          userId={userId}
+          userId={user?.id || ""}
           onClose={() => setSelectedAccountType(null)}
           onAddAccount={handleAddAccount}
           onUpdateAccount={handleUpdateAccount}

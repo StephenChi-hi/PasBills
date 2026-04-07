@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as Icons from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
@@ -10,7 +10,6 @@ import { getExpenseCategoryById } from "./constants/expenseCategories";
 import { getAccountName } from "./constants/accounts";
 import { getBusinessById } from "./constants/businesses";
 import { EditTransactionModal } from "./EditTransactionModal";
-import { createClient } from "@/lib/supabase/client";
 
 interface Account {
   id: string;
@@ -38,6 +37,8 @@ export interface Transaction {
 
 interface TransactionListCardProps {
   transactions?: Transaction[];
+  accounts?: Account[];
+  categories?: Category[];
 }
 
 interface DatabaseTransaction {
@@ -86,117 +87,30 @@ function formatTransactionDate(dateString: string): string {
 }
 
 export function TransactionListCard({
-  transactions: propTransactions,
+  transactions: propTransactions = [],
+  accounts: propAccounts = [],
+  categories: propCategories = [],
 }: TransactionListCardProps) {
   const [displayCount, setDisplayCount] = useState(10);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
-  const [transactionsList, setTransactionsList] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [accountsMap, setAccountsMap] = useState<Record<string, Account>>({});
-  const [categoriesMap, setCategoriesMap] = useState<Record<string, Category>>(
-    {},
-  );
   const { currentCurrency } = useCurrency();
-  const { refetchTrigger } = useTransactionStore();
+  const { triggerRefetch } = useTransactionStore();
   const ITEMS_PER_PAGE = 10;
 
-  // Fetch transactions from database
-  useEffect(() => {
-    console.log(
-      "🔄 TransactionListCard useEffect triggered, refetchTrigger =",
-      refetchTrigger,
-    );
-    const fetchTransactions = async () => {
-      try {
-        setLoading(true);
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  // Build maps from props for quick lookups
+  const accountsMap = propAccounts.reduce(
+    (acc, a) => ({ ...acc, [a.id]: a }),
+    {} as Record<string, Account>,
+  );
 
-        if (!user) {
-          setLoading(false);
-          return;
-        }
+  const categoriesMap = propCategories.reduce(
+    (acc, c) => ({ ...acc, [c.id]: c }),
+    {} as Record<string, Category>,
+  );
 
-        console.log("Fetching transactions for user:", user.id);
-
-        // Fetch accounts
-        const { data: accountsData } = await supabase
-          .from("accounts")
-          .select("id, name")
-          .eq("user_id", user.id);
-
-        if (accountsData) {
-          const accMap = accountsData.reduce(
-            (acc, a) => ({ ...acc, [a.id]: a }),
-            {} as Record<string, Account>,
-          );
-          setAccountsMap(accMap);
-        }
-
-        // Fetch categories
-        const { data: categoriesData } = await supabase
-          .from("categories")
-          .select("id, name, icon")
-          .or(`user_id.is.null,user_id.eq.${user.id}`);
-
-        if (categoriesData) {
-          const catMap = categoriesData.reduce(
-            (acc, c) => ({ ...acc, [c.id]: c }),
-            {} as Record<string, Category>,
-          );
-          setCategoriesMap(catMap);
-        }
-
-        // Fetch transactions
-        const { data: txData, error } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("transaction_date", { ascending: false })
-          .limit(100);
-
-        if (error) {
-          console.error("Error fetching transactions:", error);
-          setLoading(false);
-          return;
-        }
-
-        // Transform database transactions to Transaction interface
-        const transformedTransactions: Transaction[] = (txData || []).map(
-          (tx: DatabaseTransaction) => ({
-            id: tx.id,
-            description: tx.description,
-            amount: tx.amount,
-            type: tx.type,
-            categoryId: tx.category_id || "",
-            from: tx.from_account_id || "",
-            to: tx.to_account_id || "",
-            businessId: tx.business_id,
-            date: formatTransactionDate(tx.transaction_date),
-            isInternal:
-              !tx.is_business && tx.from_account_id && tx.to_account_id
-                ? true
-                : false,
-          }),
-        );
-
-        console.log(
-          "Transformed transactions:",
-          transformedTransactions.length,
-        );
-        setTransactionsList(transformedTransactions);
-      } catch (err) {
-        console.error("Error in fetchTransactions:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, [refetchTrigger]);
+  // Use transactions directly from props
+  const transactionsList = propTransactions;
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -226,19 +140,15 @@ export function TransactionListCard({
   };
 
   const handleSaveTransaction = (updatedTransaction: Transaction) => {
-    setTransactionsList((prev) =>
-      prev.map((t) =>
-        t.id === updatedTransaction.id ? updatedTransaction : t,
-      ),
-    );
     setSelectedTransaction(null);
     console.log("Transaction updated:", updatedTransaction);
+    triggerRefetch(); // Trigger central refetch
   };
 
   const handleDeleteTransaction = (transactionId: string) => {
-    setTransactionsList((prev) => prev.filter((t) => t.id !== transactionId));
     setSelectedTransaction(null);
     console.log("Transaction deleted:", transactionId);
+    triggerRefetch(); // Trigger central refetch
   };
 
   const visibleTransactions = transactionsList.slice(0, displayCount);
@@ -254,13 +164,7 @@ export function TransactionListCard({
       </div>
 
       <div className="mt-4 space-y-3 flex-1">
-        {loading ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Loading transactions...
-            </p>
-          </div>
-        ) : transactionsList.length === 0 ? (
+        {transactionsList.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               No transactions yet
@@ -330,8 +234,8 @@ export function TransactionListCard({
                         </p>
                         {/* From/To accounts */}
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {accountsMap[transaction.from]?.name || "Outside Tx"} →{" "}
-                          {accountsMap[transaction.to]?.name || "Outside Tx"}
+                          {accountsMap[transaction.from]?.name || "Outside Tx"}{" "}
+                          → {accountsMap[transaction.to]?.name || "Outside Tx"}
                         </p>
                         {/* Date */}
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">

@@ -188,18 +188,16 @@ export function TransactionFormModal({
     }
   };
 
-  const handleAmountInput = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
-    
+
     // Remove all non-digits except decimal point, then ensure only one decimal
     const cleanedInput = input
       .replace(/[^0-9.]/g, "")
       .replace(/(\.)(?=.*\.)/g, "");
-    
+
     setAmountString(cleanedInput);
-    
+
     const parsedValue = parseFloat(cleanedInput) || 0;
     setFormData((prev) => ({
       ...prev,
@@ -213,8 +211,10 @@ export function TransactionFormModal({
     >,
   ) => {
     const { name, type } = e.target as any;
-    const value = (e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
-    
+    const value = (
+      e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    ).value;
+
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -352,8 +352,8 @@ export function TransactionFormModal({
             </div>
           )}
 
-          {/* To Account - Only for Income */}
-          {type === "income" && (
+          {/* To Account - Only for Income and not for Tangible Assets */}
+          {type === "income" && !formData.tangibleAssets && (
             <div>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                 To Account

@@ -21,6 +21,7 @@ import { CalculateTaxButton } from "./home/CalculateTaxButton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { HandCoins, Loader2 } from "lucide-react";
+import { useDashboardData } from "@/lib/hooks/useDashboardData";
 
 const cardTransition = (index: number) => ({
   delay: index * 0.1,
@@ -31,6 +32,9 @@ const cardTransition = (index: number) => ({
 export default function Home() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
+  const { data: dashboardData, loading: dashboardLoading } = useDashboardData(
+    user?.id,
+  );
 
   // Protect the route - redirect to signin if not authenticated
   useEffect(() => {
@@ -87,140 +91,208 @@ export default function Home() {
     return null;
   }
 
+  // Debug: Log dashboard data for troubleshooting
+  if (typeof window !== "undefined" && dashboardData) {
+    console.log("📊 Dashboard Data Debug Info:");
+    console.log("  - User ID:", user?.id);
+    console.log("  - Loading:", dashboardLoading);
+    console.log("  - Balance:", dashboardData.balance);
+    console.log("  - CashFlow:", dashboardData.cashFlow);
+    console.log("  - Transactions:", dashboardData.transactions?.length);
+    console.log("  - Accounts:", dashboardData.accounts?.length);
+    console.log("  - Categories:", dashboardData.categories?.length);
+    console.log("  - Businesses:", dashboardData.businesses?.length);
+    console.log("  - Loans:", dashboardData.loans?.length);
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50  dark:bg-gradient-to-br dark:from-zinc-950 dark:to-green-900">
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Fixed Navbar with Glassmorphism */}
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-white/80 dark:bg-zinc-900/10 border-b border-zinc-200/50 dark:border-zinc-700/50 shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Dashboard
+          </h1>
+          {/* Mobile Menu Button */}
+          <MobileMenu
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            toolsComponents={{
+              CurrencySwitcher,
+              DownloadTransactionsButton,
+              AITimelineButton,
+              CalculateTaxButton,
+              ResetDataButton,
+            }}
+          />
+        </div>
+      </nav>
+      <main className="mx-auto max-w-7xl px-4 pt-24 pb-36 sm:px-6 lg:px-8">
+        {/* DEBUG: Temporary Data Status Panel */}
+        <div className="mb-6 hidden rounded-lg border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
+          <p className="text-xs font-mono text-yellow-800 dark:text-yellow-200">
+            <strong>DEBUG:</strong> Accounts:{" "}
+            {dashboardData.accounts?.length || 0} | Transactions:{" "}
+            {dashboardData.transactions?.length || 0} | Categories:{" "}
+            {dashboardData.categories?.length || 0} | Businesses:{" "}
+            {dashboardData.businesses?.length || 0} | Loans:{" "}
+            {dashboardData.loans?.length || 0} | Loading:{" "}
+            {dashboardLoading ? "Yes" : "No"}
+          </p>
+        </div>
+        {/* Tips: Temporary Data Status Panel */}
+
         {/* Header with User Info and Mobile Menu Button */}
         <div className="mb-8 flex w-full">
           <div className="flex w-full flex-col">
-            <div className="flex items-start justify-between ">
-              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                Dashboard
-              </h1>
-              {/* Mobile Menu Button */}
-              <MobileMenu
-                onNavigate={handleNavigate}
-                onLogout={handleLogout}
-                toolsComponents={{
-                  CurrencySwitcher,
-                  DownloadTransactionsButton,
-                  AITimelineButton,
-                  CalculateTaxButton,
-                  ResetDataButton,
-                }}
-              />
-            </div>
-
-            <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+            <p className="text-zinc-600 dark:text-zinc-400">
               Welcome back, Here's your financial overview.
             </p>
-            <p className=" text-[12px] text-zinc-700 dark:text-zinc-500">
-              {" "}
+            <p className="text-[12px] text-zinc-700 dark:text-zinc-500">
               {user?.email ? ` ${user.email}` : ""}
             </p>
           </div>
         </div>
 
-        {/* Two-Column Grid Layout */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Takes 2 columns on large screens */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Balance Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={cardTransition(0)}
-            >
-              <BalanceCard liquidBalance={0} netWorth={0} />
-            </motion.div>
-
-            {/* Cash Flow Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={cardTransition(1)}
-            >
-              <CashFlowCard inflow={0} outflow={0} />
-            </motion.div>
-
-            {/* Transaction List Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={cardTransition(2)}
-            >
-              <TransactionListCard />
-            </motion.div>
+        {/* Loading state for dashboard */}
+        {dashboardLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Loading dashboard...
+              </p>
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Two-Column Grid Layout */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Left Column - Takes 2 columns on large screens */}
+              <div className="space-y-6 lg:col-span-2">
+                {/* Balance Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={cardTransition(0)}
+                >
+                  <BalanceCard
+                    liquidBalance={dashboardData.balance?.liquid_balance || 0}
+                    netWorth={dashboardData.balance?.net_worth || 0}
+                  />
 
-          {/* Right Column - Takes 1 column on large screens */}
-          <div className="space-y-6">
-            {/* Accounts Card */}
-            <div ref={accountsRef}>
+                  <div className="mt-6 rounded-lg border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
+                    <p className="text-xs font-mono text-yellow-800 dark:text-yellow-200">
+                      <strong>💡 Quick Tip:</strong> Seeing where your money is
+                      going is the first step to controlling it. Track your
+                      transactions regularly and review your cash flow to
+                      identify spending patterns.
+                    </p>
+                  </div>
+                </motion.div>
+
+                {/* Cash Flow Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={cardTransition(1)}
+                >
+                  <CashFlowCard
+                    inflow={dashboardData.cashFlow?.total_inflow || 0}
+                    outflow={dashboardData.cashFlow?.total_outflow || 0}
+                  />
+                </motion.div>
+
+                {/* Transaction List Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={cardTransition(2)}
+                >
+                  <TransactionListCard
+                    transactions={dashboardData.transactions}
+                    accounts={dashboardData.accounts}
+                    categories={dashboardData.categories}
+                  />
+                </motion.div>
+              </div>
+
+              {/* Right Column - Takes 1 column on large screens */}
+              <div className="space-y-6">
+                {/* Accounts Card */}
+                <div ref={accountsRef}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={cardTransition(3)}
+                  >
+                    <AccountsCard accounts={dashboardData.accounts} />
+                  </motion.div>
+                </div>
+
+                {/* Businesses Card */}
+                <div ref={businessesRef}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={cardTransition(4)}
+                  >
+                    <BusinessesCard businesses={dashboardData.businesses} />
+                  </motion.div>
+                </div>
+
+                {/* Loans Card */}
+              </div>
+            </div>
+            {/* Cash Flow Chart - Full Width */}
+            <div className="mt-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={cardTransition(3)}
+                transition={cardTransition(7)}
               >
-                <AccountsCard />
+                <CashFlowChart chartData={dashboardData.chartData} />
               </motion.div>
             </div>
-
-            {/* Businesses Card */}
-            <div ref={businessesRef}>
+            <div className=" my-8" ref={loansRef}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={cardTransition(4)}
+                transition={cardTransition(5)}
               >
-                <BusinessesCard />
+                <LoansCard loans={dashboardData.loans} />
               </motion.div>
             </div>
 
-            {/* Loans Card */}
-          </div>
-        </div>
-        {/* Cash Flow Chart - Full Width */}
-        <div className="mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition(7)}
-          >
-            <CashFlowChart />
-          </motion.div>
-        </div>
-        <div className=" my-8" ref={loansRef}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition(5)}
-          >
-            <LoansCard />
-          </motion.div>
-        </div>
+            {/* Tangible Assets Card */}
+            <div className="my-8" ref={tangibleAssetsRef}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={cardTransition(6)}
+              >
+                <TangibleAssetsCard
+                  assets={dashboardData.tangibleAssets}
+                  accounts={dashboardData.accounts}
+                />
+              </motion.div>
+            </div>
 
-        {/* Tangible Assets Card */}
-        <div className="my-8" ref={tangibleAssetsRef}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition(6)}
-          >
-            <TangibleAssetsCard />
-          </motion.div>
-        </div>
-
-        {/* Cash Flow Dynamics Card - Full Width */}
-        <div className="mt-8" ref={cashFlowDynamicsRef}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition(8)}
-          >
-            <CashFlowDynamicsCard />
-          </motion.div>
-        </div>
+            {/* Cash Flow Dynamics Card - Full Width */}
+            <div className="mt-8" ref={cashFlowDynamicsRef}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={cardTransition(8)}
+              >
+                <CashFlowDynamicsCard
+                  categories={dashboardData.categories}
+                  transactions={dashboardData.transactions}
+                />
+              </motion.div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Bottom Navigation */}

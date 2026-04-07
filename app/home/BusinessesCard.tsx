@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { useTransactionStore } from "@/lib/stores/transaction-store";
-import { createClient } from "@/lib/supabase/client";
 import { AddBusinessModal } from "./AddBusinessModal";
 import { EditBusinessModal } from "./EditBusinessModal";
 import { Transaction } from "./TransactionListCard";
@@ -25,113 +24,18 @@ interface BusinessesCardProps {
 }
 
 export function BusinessesCard({
-  businesses = [
-    {
-      id: "1",
-      name: "Digital Agency",
-      revenue: 45000,
-      expenses: 28000,
-      status: "profit",
-
-      description:
-        "Web design, branding, and digital marketing services for small to medium businesses",
-    },
-    {
-      id: "2",
-      name: "SaaS Product",
-      revenue: 32500,
-      expenses: 18000,
-      status: "profit",
-      description:
-        "Cloud-based project management software with recurring subscription model",
-    },
-    {
-      id: "3",
-      name: "Consulting",
-      revenue: 22000,
-      expenses: 8500,
-      status: "profit",
-      description:
-        "Business strategy and technology consulting for enterprise clients",
-    },
-    {
-      id: "4",
-      name: "E-Commerce",
-      revenue: 15000,
-      expenses: 18000,
-      status: "loss",
-      description: "Online store selling handmade artisan products",
-    },
-  ],
-  transactions = [],
+  businesses: propBusinesses = [],
+  transactions: propTransactions = [],
 }: BusinessesCardProps) {
-  const [businessList, setBusinessList] = useState<Business[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(
     null,
   );
-  const [transactionList, setTransactionList] = useState(transactions);
-  const [userId, setUserId] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
   const { currentCurrency } = useCurrency();
-  const { refetchTrigger } = useTransactionStore();
+  const { triggerRefetch } = useTransactionStore();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    getUser();
-  }, []);
-
-  useEffect(() => {
-    console.log(
-      "🔄 BusinessesCard useEffect triggered, userId =",
-      userId,
-      "refetchTrigger =",
-      refetchTrigger,
-    );
-    const fetchBusinesses = async () => {
-      if (!userId) return;
-
-      try {
-        setIsLoading(true);
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("businesses")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching businesses:", error);
-          return;
-        }
-
-        const formattedBusinesses: Business[] = (data || []).map(
-          (biz: any) => ({
-            id: biz.id,
-            name: biz.name,
-            description: biz.description,
-            revenue: biz.revenue,
-            expenses: biz.expenses,
-            status: biz.status,
-          }),
-        );
-
-        setBusinessList(formattedBusinesses);
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchBusinesses();
-  }, [userId, refetchTrigger]);
+  // Use businesses directly from props
+  const businessList = propBusinesses;
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -161,47 +65,20 @@ export function BusinessesCard({
   };
 
   const handleAddBusiness = async (name: string, description: string) => {
-    // Refetch businesses to get the newly added business with real UUID from database
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching businesses:", error);
-        return;
-      }
-
-      const formattedBusinesses: Business[] = (data || []).map((biz: any) => ({
-        id: biz.id,
-        name: biz.name,
-        description: biz.description,
-        revenue: biz.revenue,
-        expenses: biz.expenses,
-        status: biz.status,
-      }));
-
-      setBusinessList(formattedBusinesses);
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    console.log("Business added:", name);
+    triggerRefetch();
   };
 
   const handleSaveBusiness = (updatedBusiness: Business) => {
-    setBusinessList((prev) =>
-      prev.map((b) => (b.id === updatedBusiness.id ? updatedBusiness : b)),
-    );
     setSelectedBusiness(null);
     console.log("Business updated:", updatedBusiness);
+    triggerRefetch();
   };
 
   const handleDeleteBusiness = (businessId: string) => {
-    setBusinessList((prev) => prev.filter((b) => b.id !== businessId));
     setSelectedBusiness(null);
     console.log("Business deleted:", businessId);
+    triggerRefetch();
   };
 
   const totalRevenue = businessList.reduce((sum, b) => {
@@ -233,11 +110,7 @@ export function BusinessesCard({
         </div>
 
         <div className="mt-6 space-y-4">
-          {isLoading ? (
-            <p className="text-center text-sm text-zinc-500">
-              Loading businesses...
-            </p>
-          ) : businessList.length === 0 ? (
+          {businessList.length === 0 ? (
             <p className="text-center text-sm text-zinc-500">
               No businesses yet. Create one to get started!
             </p>

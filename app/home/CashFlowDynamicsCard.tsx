@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as Icons from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { useTransactionStore } from "@/lib/stores/transaction-store";
-import { createClient } from "@/lib/supabase/client";
 
 interface Category {
   id: string;
@@ -28,76 +27,23 @@ function getIconComponent(iconName: string) {
   return IconComponent || Icons.HelpCircle;
 }
 
-export function CashFlowDynamicsCard() {
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryAmounts, setCategoryAmounts] = useState<CategoryAmount>({});
+export function CashFlowDynamicsCard({
+  categories: propCategories = [],
+  transactions: propTransactions = [],
+}: {
+  categories?: Category[];
+  transactions?: any[];
+}) {
   const { currentCurrency } = useCurrency();
-  const { refetchTrigger } = useTransactionStore();
 
-  // Fetch transactions and aggregate by category
-  useEffect(() => {
-    console.log(
-      "🔄 CashFlowDynamicsCard useEffect triggered, refetchTrigger =",
-      refetchTrigger,
-    );
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        console.log("Fetching categories and transactions for user:", user.id);
-
-        // Fetch all categories
-        const { data: categoriesData } = await supabase
-          .from("categories")
-          .select("id, name, icon, type, category_type")
-          .or(`user_id.is.null,user_id.eq.${user.id}`);
-
-        if (categoriesData) {
-          setCategories(categoriesData as Category[]);
-        }
-
-        // Fetch transactions and aggregate by category
-        const { data: transactionsData, error } = await supabase
-          .from("transactions")
-          .select("amount, category_id, is_business")
-          .eq("user_id", user.id);
-
-        if (error) {
-          console.error("Error fetching transactions:", error);
-          setLoading(false);
-          return;
-        }
-
-        // Aggregate transactions by category
-        const amounts: CategoryAmount = {};
-        (transactionsData || []).forEach((tx: any) => {
-          if (tx.category_id) {
-            amounts[tx.category_id] =
-              (amounts[tx.category_id] || 0) + tx.amount;
-          }
-        });
-
-        console.log("Category amounts aggregated:", amounts);
-        setCategoryAmounts(amounts);
-      } catch (err) {
-        console.error("Error fetching cash flow data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [refetchTrigger]);
+  // Build category amounts from transactions (use camelCase: categoryId)
+  const categoryAmounts: CategoryAmount = {};
+  (propTransactions || []).forEach((tx: any) => {
+    if (tx.categoryId) {
+      categoryAmounts[tx.categoryId] =
+        (categoryAmounts[tx.categoryId] || 0) + tx.amount;
+    }
+  });
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -120,16 +66,16 @@ export function CashFlowDynamicsCard() {
 
   // Get categories grouped by type and category_type
   // This ensures we get separate category arrays for income vs expense, even if they have the same name
-  const personalIncome = categories.filter(
+  const personalIncome = propCategories.filter(
     (cat) => cat.type === "income" && cat.category_type === "personal",
   );
-  const businessIncome = categories.filter(
+  const businessIncome = propCategories.filter(
     (cat) => cat.type === "income" && cat.category_type === "business",
   );
-  const personalExpenses = categories.filter(
+  const personalExpenses = propCategories.filter(
     (cat) => cat.type === "expense" && cat.category_type === "personal",
   );
-  const businessExpenses = categories.filter(
+  const businessExpenses = propCategories.filter(
     (cat) => cat.type === "expense" && cat.category_type === "business",
   );
 
@@ -186,119 +132,101 @@ export function CashFlowDynamicsCard() {
 
       {/* Main Grid - Personal and Business Rows */}
       <div className="space-y-6 p-6">
-        {loading ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Loading cash flow data...
-            </p>
+        {/* PERSONAL ROW */}
+        <div>
+          <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
+            Personal
+          </h4>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Personal Income - Left */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
+                  Income
+                </p>
+                <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(calcPersonalIncome)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                {personalIncome.map((cat) => renderCategoryItem(cat))}
+                {personalIncome.every((cat) => !categoryAmounts[cat.id]) && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    No income recorded
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Personal Expenses - Right */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                  Expenses
+                </p>
+                <p className="text-sm font-bold text-red-600 dark:text-red-400">
+                  {formatCurrency(calcPersonalExpenses)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                {personalExpenses.map((cat) => renderCategoryItem(cat))}
+                {personalExpenses.every((cat) => !categoryAmounts[cat.id]) && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    No expenses recorded
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* PERSONAL ROW */}
-            <div>
-              <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
-                Personal
-              </h4>
-              <div className="grid grid-cols-2 gap-6">
-                {/* Personal Income - Left */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                      Income
-                    </p>
-                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(calcPersonalIncome)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {personalIncome.map((cat) => renderCategoryItem(cat))}
-                    {personalIncome.every(
-                      (cat) => !categoryAmounts[cat.id],
-                    ) && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        No income recorded
-                      </p>
-                    )}
-                  </div>
-                </div>
+        </div>
 
-                {/* Personal Expenses - Right */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                      Expenses
-                    </p>
-                    <p className="text-sm font-bold text-red-600 dark:text-red-400">
-                      {formatCurrency(calcPersonalExpenses)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {personalExpenses.map((cat) => renderCategoryItem(cat))}
-                    {personalExpenses.every(
-                      (cat) => !categoryAmounts[cat.id],
-                    ) && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        No expenses recorded
-                      </p>
-                    )}
-                  </div>
-                </div>
+        {/* BUSINESS ROW */}
+        <div>
+          <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
+            Business
+          </h4>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Business Income - Left */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
+                  Income
+                </p>
+                <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(calcBusinessIncome)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                {businessIncome.map((cat) => renderCategoryItem(cat))}
+                {businessIncome.every((cat) => !categoryAmounts[cat.id]) && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    No income recorded
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* BUSINESS ROW */}
+            {/* Business Expenses - Right */}
             <div>
-              <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-widest mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-700">
-                Business
-              </h4>
-              <div className="grid grid-cols-2 gap-6">
-                {/* Business Income - Left */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                      Income
-                    </p>
-                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(calcBusinessIncome)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {businessIncome.map((cat) => renderCategoryItem(cat))}
-                    {businessIncome.every(
-                      (cat) => !categoryAmounts[cat.id],
-                    ) && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        No income recorded
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Business Expenses - Right */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                      Expenses
-                    </p>
-                    <p className="text-sm font-bold text-red-600 dark:text-red-400">
-                      {formatCurrency(calcBusinessExpenses)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {businessExpenses.map((cat) => renderCategoryItem(cat))}
-                    {businessExpenses.every(
-                      (cat) => !categoryAmounts[cat.id],
-                    ) && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        No expenses recorded
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                  Expenses
+                </p>
+                <p className="text-sm font-bold text-red-600 dark:text-red-400">
+                  {formatCurrency(calcBusinessExpenses)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                {businessExpenses.map((cat) => renderCategoryItem(cat))}
+                {businessExpenses.every((cat) => !categoryAmounts[cat.id]) && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    No expenses recorded
+                  </p>
+                )}
               </div>
             </div>
-          </>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );

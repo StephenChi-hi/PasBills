@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Package, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
 import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/auth/auth-context";
 
 interface TangibleAsset {
   id: string;
@@ -23,6 +23,7 @@ interface TangibleAsset {
 
 interface TangibleAssetsCardProps {
   assets?: TangibleAsset[];
+  accounts?: Account[];
 }
 
 interface Business {
@@ -37,11 +38,9 @@ interface Account {
 }
 
 export function TangibleAssetsCard({
-  assets: propAssets,
+  assets: propAssets = [],
+  accounts: propAccounts = [],
 }: TangibleAssetsCardProps) {
-  const [loading, setLoading] = useState(true);
-  const [assets, setAssets] = useState<TangibleAsset[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<TangibleAsset | null>(
     null,
   );
@@ -49,115 +48,13 @@ export function TangibleAssetsCard({
   const [showSoldInput, setShowSoldInput] = useState(false);
   const [saleAmount, setSaleAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { currentCurrency } = useCurrency();
-  const { refetchTrigger, triggerRefetch } = useTransactionStore();
   const { user } = useAuth();
+  const { currentCurrency } = useCurrency();
+  const { triggerRefetch } = useTransactionStore();
 
-  // Fetch tangible assets from database
-  useEffect(() => {
-    console.log(
-      "🔄 TangibleAssetsCard useEffect triggered, refetchTrigger =",
-      refetchTrigger,
-    );
-    const fetchTangibleAssets = async () => {
-      try {
-        setLoading(true);
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        console.log("Fetching tangible assets for user:", user.id);
-
-        // Fetch transactions where tangible_assets = true
-        const { data: txData, error } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("tangible_assets", true)
-          .order("transaction_date", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching tangible assets:", error);
-          setLoading(false);
-          return;
-        }
-
-        // Fetch businesses for mapping
-        const { data: businessesData } = await supabase
-          .from("businesses")
-          .select("id, name")
-          .eq("user_id", user.id);
-
-        const businessMap = (businessesData || []).reduce(
-          (acc, b) => ({ ...acc, [b.id]: b }),
-          {} as Record<string, Business>,
-        );
-
-        // Transform transactions to TangibleAsset interface
-        const transformedAssets: TangibleAsset[] = (txData || []).map(
-          (tx: any) => {
-            const business = tx.business_id
-              ? businessMap[tx.business_id]
-              : null;
-            const isPersonal = !tx.is_business;
-
-            return {
-              id: tx.id,
-              description: tx.description,
-              amount: tx.amount,
-              currency: "NGN",
-              date: tx.transaction_date,
-              transactionType: isPersonal ? "personal" : "business",
-              businessId: tx.business_id,
-              businessName: business?.name,
-              category: tx.type === "income" ? "Asset" : "Purchase",
-            };
-          },
-        );
-
-        console.log("Transformed tangible assets:", transformedAssets.length);
-        setAssets(transformedAssets);
-      } catch (err) {
-        console.error("Error fetching tangible assets:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTangibleAssets();
-  }, [refetchTrigger]);
-
-  // Fetch accounts when modal opens
-  useEffect(() => {
-    if (!selectedAsset || !user) return;
-
-    const fetchAccounts = async () => {
-      try {
-        const supabase = createClient();
-        const { data: accountsData } = await supabase
-          .from("accounts")
-          .select("id, name, type")
-          .eq("user_id", user.id)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false });
-
-        if (accountsData && accountsData.length > 0) {
-          setAccounts(accountsData);
-          setSelectedAccountId(accountsData[0].id); // Set first account as default
-        }
-      } catch (err) {
-        console.error("Error fetching accounts:", err);
-      }
-    };
-
-    fetchAccounts();
-  }, [selectedAsset, user]);
+  // Use data directly from props
+  const assets = propAssets;
+  const accounts = propAccounts;
 
   const personalAssets = assets.filter((a) => a.transactionType === "personal");
   const businessAssets = assets.filter((a) => a.transactionType === "business");
@@ -313,13 +210,7 @@ export function TangibleAssetsCard({
 
       {/* Two Column Grid */}
       <div className="grid grid-cols-2 gap-6">
-        {loading ? (
-          <div className="col-span-2 text-center py-8">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Loading tangible assets...
-            </p>
-          </div>
-        ) : assets.length === 0 ? (
+        {assets.length === 0 ? (
           <div className="col-span-2 text-center py-8">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               No tangible assets recorded

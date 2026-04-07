@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useCurrency } from "@/lib/currency/currency-context";
 import { CURRENCIES } from "@/lib/currency/currencies";
+import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { AddLoanModal } from "./AddLoanModal";
 import { EditLoanModal } from "./EditLoanModal";
-import { useAuth } from "@/lib/auth/auth-context";
-import { getUserLoans } from "@/lib/supabase/loans";
 
 interface Loan {
   id: string;
@@ -32,64 +31,14 @@ interface LoansCardProps {
   loans?: Loan[];
 }
 
-export function LoansCard({ loans = [] }: LoansCardProps) {
-  const [loanList, setLoanList] = useState<Loan[]>(
-    loans.length > 0 ? loans : [],
-  );
+export function LoansCard({ loans: propLoans = [] }: LoansCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const { currentCurrency } = useCurrency();
-  const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(!user);
+  const { triggerRefetch } = useTransactionStore();
 
-  // Load active loans from database
-  useEffect(() => {
-    async function loadLoans() {
-      if (!user) return;
-
-      try {
-        setIsLoading(true);
-        const data = await getUserLoans(user.id);
-        if (data && data.length > 0) {
-          // Filter to only show active loans (not settled or defaulted)
-          const activeLoans = data.filter(
-            (loan: any) => loan.status === "active",
-          );
-
-          if (activeLoans.length > 0) {
-            // Transform database loans to component format
-            const transformedLoans = activeLoans.map((loan: any) => ({
-              ...loan,
-              loanType: loan.loan_type,
-              counterpartyName: loan.counterparty_name,
-              principalAmount: loan.principal_amount,
-              interestRate: loan.interest_rate,
-              borrowedDate: loan.borrowed_date,
-              dueDate: loan.due_date,
-              totalPaid: loan.amount_paid,
-              transactionType: loan.transaction_type,
-              businessId: loan.business_id,
-              account: "Account", // TODO: Fetch account name from accounts table
-              accountId: loan.account_id,
-              amount: loan.total_amount_due,
-            }));
-            setLoanList(transformedLoans);
-          } else {
-            setLoanList([]);
-          }
-        } else {
-          setLoanList([]);
-        }
-      } catch (error) {
-        console.error("Error loading loans:", error);
-        setLoanList([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadLoans();
-  }, [user]);
+  // Use loans directly from props
+  const loanList = propLoans;
 
   const formatCurrency = (value: number) => {
     const currency = CURRENCIES[currentCurrency as keyof typeof CURRENCIES];
@@ -127,24 +76,20 @@ export function LoansCard({ loans = [] }: LoansCardProps) {
   );
 
   const handleAddLoan = (loanData: Loan) => {
-    const newLoan: Loan = {
-      ...loanData,
-      id: `${Date.now()}`,
-    };
-    setLoanList([...loanList, newLoan]);
-    setIsAddModalOpen(false);
+    console.log("Loan added:", loanData);
+    triggerRefetch();
   };
 
   const handleSaveLoan = (updatedLoan: Loan) => {
-    setLoanList((prev) =>
-      prev.map((l) => (l.id === updatedLoan.id ? updatedLoan : l)),
-    );
+    console.log("Loan updated:", updatedLoan);
     setSelectedLoan(null);
+    triggerRefetch();
   };
 
   const handleDeleteLoan = (loanId: string) => {
-    setLoanList((prev) => prev.filter((l) => l.id !== loanId));
+    console.log("Loan deleted:", loanId);
     setSelectedLoan(null);
+    triggerRefetch();
   };
 
   return (
@@ -297,9 +242,7 @@ export function LoansCard({ loans = [] }: LoansCardProps) {
         {loanList.length === 0 && (
           <div className="text-center py-8">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {isLoading
-                ? "Loading loans..."
-                : "No active loans. Add one to get started!"}
+              No active loans. Add one to get started!
             </p>
           </div>
         )}

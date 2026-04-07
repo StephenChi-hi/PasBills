@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   LineChart,
@@ -11,9 +11,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/lib/auth/auth-context";
-import { useTransactionStore } from "@/lib/stores/transaction-store";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ChartData {
@@ -39,81 +36,23 @@ const monthNames = [
   "December",
 ];
 
-export function CashFlowChart() {
-  const { user } = useAuth();
-  const { refetchTrigger } = useTransactionStore();
-  const [data, setData] = useState<ChartData[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CashFlowChart({
+  chartData: propChartData = [],
+}: {
+  chartData?: any[];
+}) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const currentDate = new Date();
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!user?.id) return;
-
-      setLoading(true);
-      try {
-        const supabase = createClient();
-
-        // Get the first and last day of the selected month
-        const firstDay = new Date(selectedYear, selectedMonth, 1);
-        const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
-
-        const { data: transactions, error } = await supabase
-          .from("transactions")
-          .select("type, amount, transaction_date")
-          .eq("user_id", user.id)
-          .gte("transaction_date", firstDay.toISOString().split("T")[0])
-          .lte("transaction_date", lastDay.toISOString().split("T")[0]);
-
-        if (error) throw error;
-
-        // Initialize chart data for all days in the month
-        const dayCount = lastDay.getDate();
-        const chartData: { [key: number]: ChartData } = {};
-
-        for (let day = 1; day <= dayCount; day++) {
-          chartData[day] = {
-            date: `${monthNames[selectedMonth].slice(0, 3)} ${day}`,
-            day,
-            income: 0,
-            expense: 0,
-            net: 0,
-          };
-        }
-
-        // Aggregate transactions by day
-        if (transactions) {
-          transactions.forEach((tx) => {
-            const date = new Date(tx.transaction_date);
-            const day = date.getDate();
-            if (chartData[day]) {
-              if (tx.type === "income") {
-                chartData[day].income += parseFloat(tx.amount as any);
-              } else if (tx.type === "expense") {
-                chartData[day].expense += parseFloat(tx.amount as any);
-              }
-              chartData[day].net =
-                chartData[day].income - chartData[day].expense;
-            }
-          });
-        }
-
-        const sortedData = Object.values(chartData).sort(
-          (a, b) => a.day - b.day,
-        );
-        setData(sortedData);
-      } catch (error) {
-        console.error("Error fetching transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, [user?.id, selectedMonth, selectedYear, refetchTrigger]);
+  // Filter chart data to show only selected month
+  const filteredData: ChartData[] = propChartData.filter((item) => {
+    if (!item.date) return false;
+    // Date format is YYYY-MM-DD
+    const [year, month] = item.date.split("-").map(Number);
+    return year === selectedYear && month === selectedMonth + 1;
+  });
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) {
@@ -141,8 +80,8 @@ export function CashFlowChart() {
     (selectedMonth === 11 && selectedYear === new Date().getFullYear()) ||
     selectedMonth === new Date().getMonth() - 1;
 
-  const totalIncome = data.reduce((sum, d) => sum + d.income, 0);
-  const totalExpense = data.reduce((sum, d) => sum + d.expense, 0);
+  const totalIncome = filteredData.reduce((sum, d) => sum + d.income, 0);
+  const totalExpense = filteredData.reduce((sum, d) => sum + d.expense, 0);
   const netFlow = totalIncome - totalExpense;
 
   return (
@@ -188,7 +127,7 @@ export function CashFlowChart() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-col-1 sm:grid-cols-3 gap-4">
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
             <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
               Total Income
@@ -246,16 +185,10 @@ export function CashFlowChart() {
       </div>
 
       {/* Chart */}
-      {loading ? (
-        <div className="flex items-center justify-center h-80">
-          <div className="text-zinc-500 dark:text-zinc-400">
-            Loading chart...
-          </div>
-        </div>
-      ) : data.length > 0 ? (
+      {filteredData.length > 0 ? (
         <ResponsiveContainer width="100%" height={400}>
           <LineChart
-            data={data}
+            data={filteredData}
             margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
           >
             <XAxis
