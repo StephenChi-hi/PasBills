@@ -5,7 +5,9 @@ export interface Currency {
   symbol: string;
   name: string;
   country: string;
+  countryCode: string; // ISO 3166-1 alpha-2 code for flags
   rateToUSD: number; // 1 USD = X currency
+  flagUrl?: string;
 }
 
 export const CURRENCIES: Record<string, Currency> = {
@@ -15,6 +17,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "₦",
     name: "Nigerian Naira",
     country: "Nigeria",
+    countryCode: "ng",
     rateToUSD: 1550, // 1 USD = 1550 NGN (approximate)
   },
   ZAR: {
@@ -22,6 +25,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "R",
     name: "South African Rand",
     country: "South Africa",
+    countryCode: "za",
     rateToUSD: 18.5,
   },
   GHS: {
@@ -29,6 +33,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "₵",
     name: "Ghanaian Cedi",
     country: "Ghana",
+    countryCode: "gh",
     rateToUSD: 12.5,
   },
   KES: {
@@ -36,6 +41,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "KSh",
     name: "Kenyan Shilling",
     country: "Kenya",
+    countryCode: "ke",
     rateToUSD: 155,
   },
   EGP: {
@@ -43,6 +49,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "E£",
     name: "Egyptian Pound",
     country: "Egypt",
+    countryCode: "eg",
     rateToUSD: 35,
   },
   UGX: {
@@ -50,6 +57,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "USh",
     name: "Ugandan Shilling",
     country: "Uganda",
+    countryCode: "ug",
     rateToUSD: 3850,
   },
   ETB: {
@@ -57,6 +65,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "Br",
     name: "Ethiopian Birr",
     country: "Ethiopia",
+    countryCode: "et",
     rateToUSD: 85,
   },
   TZS: {
@@ -64,6 +73,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "TSh",
     name: "Tanzanian Shilling",
     country: "Tanzania",
+    countryCode: "tz",
     rateToUSD: 2650,
   },
   RWF: {
@@ -71,6 +81,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "FRw",
     name: "Rwandan Franc",
     country: "Rwanda",
+    countryCode: "rw",
     rateToUSD: 1350,
   },
   CFA: {
@@ -78,6 +89,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "Fr",
     name: "CFA Franc",
     country: "West & Central Africa",
+    countryCode: "ci",
     rateToUSD: 610,
   },
 
@@ -87,6 +99,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "$",
     name: "US Dollar",
     country: "United States",
+    countryCode: "us",
     rateToUSD: 1,
   },
   EUR: {
@@ -94,6 +107,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "€",
     name: "Euro",
     country: "European Union",
+    countryCode: "eu",
     rateToUSD: 0.92,
   },
   GBP: {
@@ -101,6 +115,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "£",
     name: "British Pound",
     country: "United Kingdom",
+    countryCode: "gb",
     rateToUSD: 0.79,
   },
   JPY: {
@@ -108,6 +123,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "¥",
     name: "Japanese Yen",
     country: "Japan",
+    countryCode: "jp",
     rateToUSD: 150,
   },
   CNY: {
@@ -115,6 +131,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "¥",
     name: "Chinese Yuan",
     country: "China",
+    countryCode: "cn",
     rateToUSD: 7.2,
   },
   INR: {
@@ -122,6 +139,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "₹",
     name: "Indian Rupee",
     country: "India",
+    countryCode: "in",
     rateToUSD: 83,
   },
   AUD: {
@@ -129,6 +147,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "A$",
     name: "Australian Dollar",
     country: "Australia",
+    countryCode: "au",
     rateToUSD: 1.52,
   },
   CAD: {
@@ -136,6 +155,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "C$",
     name: "Canadian Dollar",
     country: "Canada",
+    countryCode: "ca",
     rateToUSD: 1.36,
   },
   CHF: {
@@ -143,6 +163,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "CHF",
     name: "Swiss Franc",
     country: "Switzerland",
+    countryCode: "ch",
     rateToUSD: 0.88,
   },
   SEK: {
@@ -150,6 +171,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "kr",
     name: "Swedish Krona",
     country: "Sweden",
+    countryCode: "se",
     rateToUSD: 10.5,
   },
   MXN: {
@@ -157,6 +179,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "$",
     name: "Mexican Peso",
     country: "Mexico",
+    countryCode: "mx",
     rateToUSD: 17,
   },
   BRL: {
@@ -164,6 +187,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "R$",
     name: "Brazilian Real",
     country: "Brazil",
+    countryCode: "br",
     rateToUSD: 5.0,
   },
   AED: {
@@ -171,6 +195,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "د.إ",
     name: "UAE Dirham",
     country: "United Arab Emirates",
+    countryCode: "ae",
     rateToUSD: 3.67,
   },
   SAR: {
@@ -178,6 +203,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "﷼",
     name: "Saudi Riyal",
     country: "Saudi Arabia",
+    countryCode: "sa",
     rateToUSD: 3.75,
   },
   SGD: {
@@ -185,6 +211,7 @@ export const CURRENCIES: Record<string, Currency> = {
     symbol: "S$",
     name: "Singapore Dollar",
     country: "Singapore",
+    countryCode: "sg",
     rateToUSD: 1.33,
   },
 };
@@ -203,6 +230,10 @@ export const MAJOR_CURRENCIES = [
 
 export function getCurrency(code: string): Currency {
   return CURRENCIES[code] || CURRENCIES.USD;
+}
+
+export function getFlagUrl(countryCode: string): string {
+  return `https://flagcdn.com/w320/${countryCode}.png`;
 }
 
 export function formatCurrency(

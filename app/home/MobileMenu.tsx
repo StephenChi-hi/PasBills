@@ -7,18 +7,29 @@ import { motion, AnimatePresence } from "framer-motion";
 interface MobileMenuProps {
   onNavigate?: (section: string) => void;
   onLogout?: () => void;
+  onAITimelineClick?: () => void;
+  onTokenClick?: () => void;
+  onExportTransactionsClick?: () => void;
+  onCalculateTaxClick?: () => void;
+  onResetDataClick?: () => void;
   toolsComponents?: {
     CurrencySwitcher?: React.ComponentType;
-    DownloadTransactionsButton?: React.ComponentType;
-    AITimelineButton?: React.ComponentType;
-    CalculateTaxButton?: React.ComponentType;
-    ResetDataButton?: React.ComponentType;
+    TokenNavButton?: React.ComponentType<{ onClick?: () => void }>;
+    DownloadTransactionsButton?: React.ComponentType<{ onClick?: () => void }>;
+    AITimelineButton?: React.ComponentType<{ onClick?: () => void }>;
+    CalculateTaxButton?: React.ComponentType<{ onClick?: () => void }>;
+    ResetDataButton?: React.ComponentType<{ onClick?: () => void }>;
   };
 }
 
 export function MobileMenu({
   onNavigate,
   onLogout,
+  onAITimelineClick,
+  onTokenClick,
+  onExportTransactionsClick,
+  onCalculateTaxClick,
+  onResetDataClick,
   toolsComponents,
 }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,6 +44,7 @@ export function MobileMenu({
 
   const {
     CurrencySwitcher,
+    TokenNavButton,
     DownloadTransactionsButton,
     AITimelineButton,
     CalculateTaxButton,
@@ -102,6 +114,11 @@ export function MobileMenu({
                 {toolsComponents && (
                   <div className="space-y-3 mb-6">
                     <div className="flex flex-col gap-2 w-full md:max-w-xs">
+                      {TokenNavButton && (
+                        <div className="w-full">
+                          <TokenNavButton onClick={onTokenClick} />
+                        </div>
+                      )}{" "}
                       {CurrencySwitcher && (
                         <div className="w-full">
                           <CurrencySwitcher />
@@ -109,22 +126,24 @@ export function MobileMenu({
                       )}
                       {DownloadTransactionsButton && (
                         <div className="w-full">
-                          <DownloadTransactionsButton />
+                          <DownloadTransactionsButton
+                            onClick={onExportTransactionsClick}
+                          />
                         </div>
                       )}
                       {AITimelineButton && (
                         <div className="w-full">
-                          <AITimelineButton />
+                          <AITimelineButton onClick={onAITimelineClick} />
                         </div>
                       )}
                       {CalculateTaxButton && (
                         <div className="w-full">
-                          <CalculateTaxButton />
+                          <CalculateTaxButton onClick={onCalculateTaxClick} />
                         </div>
                       )}
                       {ResetDataButton && (
                         <div className="w-full">
-                          <ResetDataButton />
+                          <ResetDataButton onClick={onResetDataClick} />
                         </div>
                       )}
                     </div>

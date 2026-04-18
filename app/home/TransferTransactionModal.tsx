@@ -221,8 +221,8 @@ export function TransferTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50  sm:p-4">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl sm:max-w-md w-full h-screen sm:max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-start sm:items-center justify-center z-50 sm:p-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-t-lg sm:rounded-lg shadow-xl sm:max-w-md w-full h-screen sm:h-auto sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-2">

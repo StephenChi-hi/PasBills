@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BalanceCard } from "./home/BalanceCard";
 import { CashFlowCard } from "./home/CashFlowCard";
@@ -17,7 +17,13 @@ import { DownloadTransactionsButton } from "./home/DownloadTransactionsButton";
 import { BottomNav } from "./home/BottomNav";
 import { MobileMenu } from "./home/MobileMenu";
 import { AITimelineButton } from "./home/AITimelineButton";
+import { TokenNavButton } from "./home/TokenNavButton";
 import { CalculateTaxButton } from "./home/CalculateTaxButton";
+import { AITimelineModal } from "./home/modals/AITimelineModal";
+import { TokenPurchaseModal } from "./home/modals/TokenPurchaseModal";
+import { ExportTransactionsModal } from "./home/modals/ExportTransactionsModal";
+import { CalculateTaxModal } from "./home/modals/CalculateTaxModal";
+import { ResetDataModal } from "./home/modals/ResetDataModal";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { HandCoins, Loader2 } from "lucide-react";
@@ -49,6 +55,13 @@ export default function Home() {
   const loansRef = useRef<HTMLDivElement>(null);
   const tangibleAssetsRef = useRef<HTMLDivElement>(null);
   const cashFlowDynamicsRef = useRef<HTMLDivElement>(null);
+
+  // State for AI Timeline Modal
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -91,19 +104,64 @@ export default function Home() {
     return null;
   }
 
-  // Debug: Log dashboard data for troubleshooting
-  if (typeof window !== "undefined" && dashboardData) {
-    console.log("📊 Dashboard Data Debug Info:");
-    console.log("  - User ID:", user?.id);
-    console.log("  - Loading:", dashboardLoading);
-    console.log("  - Balance:", dashboardData.balance);
-    console.log("  - CashFlow:", dashboardData.cashFlow);
-    console.log("  - Transactions:", dashboardData.transactions?.length);
-    console.log("  - Accounts:", dashboardData.accounts?.length);
-    console.log("  - Categories:", dashboardData.categories?.length);
-    console.log("  - Businesses:", dashboardData.businesses?.length);
-    console.log("  - Loans:", dashboardData.loans?.length);
-  }
+  // Create accounting summary for AI analysis
+  const getAccountingSummary = () => {
+    const transactions = dashboardData.transactions || [];
+    const categories = dashboardData.categories || [];
+
+    // Calculate totals
+    let totalIncome = 0;
+    let totalExpenses = 0;
+
+    // Group expenses by category
+    const expensesByCategory: Record<string, number> = {};
+    const incomeByCategory: Record<string, number> = {};
+
+    transactions.forEach((transaction: any) => {
+      const amount = parseFloat(transaction.amount) || 0;
+      const categoryId = transaction.category_id;
+      const category = categories.find((c: any) => c.id === categoryId);
+      const categoryName = category?.name || "Uncategorized";
+
+      if (transaction.type === "expense") {
+        totalExpenses += amount;
+        expensesByCategory[categoryName] =
+          (expensesByCategory[categoryName] || 0) + amount;
+      } else if (transaction.type === "income") {
+        totalIncome += amount;
+        incomeByCategory[categoryName] =
+          (incomeByCategory[categoryName] || 0) + amount;
+      }
+    });
+
+    // Sort and get top categories
+    const topExpenseCategories = Object.entries(expensesByCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 4)
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: (amount / totalExpenses) * 100,
+      }));
+
+    const topIncomeCategories = Object.entries(incomeByCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 4)
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: (amount / totalIncome) * 100,
+      }));
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netCashFlow: totalIncome - totalExpenses,
+      balance: dashboardData.balance?.liquid_balance || 0,
+      topExpenseCategories,
+      topIncomeCategories,
+    };
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50  dark:bg-gradient-to-br dark:from-zinc-950 dark:to-green-900">
@@ -113,12 +171,22 @@ export default function Home() {
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
             Dashboard
           </h1>
+          {/* Token Nav Button - Desktop */}
+          {/* <div className="hidden md:block">
+            <TokenNavButton onClick={() => setShowTokenModal(true)} />
+          </div> */}
           {/* Mobile Menu Button */}
           <MobileMenu
             onNavigate={handleNavigate}
             onLogout={handleLogout}
+            onAITimelineClick={() => setShowAIModal(true)}
+            onTokenClick={() => setShowTokenModal(true)}
+            onExportTransactionsClick={() => setShowExportModal(true)}
+            onCalculateTaxClick={() => setShowTaxModal(true)}
+            onResetDataClick={() => setShowResetModal(true)}
             toolsComponents={{
               CurrencySwitcher,
+              TokenNavButton,
               DownloadTransactionsButton,
               AITimelineButton,
               CalculateTaxButton,
@@ -297,6 +365,45 @@ export default function Home() {
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Modals */}
+      {/* AI Timeline Modal */}
+      <AITimelineModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        onOpenTokenModal={() => {
+          setShowAIModal(false);
+          setShowTokenModal(true);
+        }}
+        transactions={dashboardData.transactions}
+        accountingSummary={getAccountingSummary()}
+      />
+
+      {/* Token Purchase Modal */}
+      <TokenPurchaseModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+      />
+
+      {/* Export Transactions Modal */}
+      <ExportTransactionsModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+
+      {/* Calculate Tax Modal */}
+      <CalculateTaxModal
+        isOpen={showTaxModal}
+        onClose={() => setShowTaxModal(false)}
+        onOpenTokenModal={() => setShowTokenModal(true)}
+        businesses={dashboardData.businesses}
+      />
+
+      {/* Reset Data Modal */}
+      <ResetDataModal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+      />
     </div>
   );
 }
